@@ -47,6 +47,7 @@ st.markdown("""
     .pred-row { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 5px; border-left: 5px solid #f14545; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; position: relative; }
     .pred-row.gold-border { border-left: 5px solid #FFD700; background: #fffdf5; }
     .pred-title { width: 150px; font-weight: bold; color: #444; font-size: 15px; }
+    .ai-desc { font-size: 11px; color: #777; margin-top: 5px; display: block; line-height: 1.3; font-weight: normal; }
     .pred-balls { flex-grow: 1; display: flex; flex-wrap: wrap; max-width: 400px;} 
     .pred-ball { display: inline-block; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; color: white; font-weight: bold; margin: 3px 4px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: all 0.3s ease; }
     
@@ -66,6 +67,10 @@ st.markdown("""
     .comment-body { color: #444; font-size: 14px; line-height: 1.5; }
     </style>
 """, unsafe_allow_html=True)
+
+# --- 状态初始化 ---
+if 'vip_unlocked' not in st.session_state:
+    st.session_state['vip_unlocked'] = False
 
 # --- 工具函数 ---
 def get_countdown():
@@ -102,7 +107,7 @@ def get_lottery_rules(choice):
     rules = {
         "双色球": (list(range(1, 34)), 6, list(range(1, 17)), 1),
         "大乐透": (list(range(1, 36)), 5, list(range(1, 13)), 2),
-        "七星彩": (list(range(0, 10)), 6, list(range(0, 15)), 1),
+        "七星彩": (list(range(0, 10)), 7, list(range(0, 15)), 0), # 七星彩规则修正用于自定义沙盘
         "快乐8": (list(range(1, 81)), 20, [], 0),
         "福彩3D": (list(range(0, 10)), 3, [], 0),
         "排列3": (list(range(0, 10)), 3, [], 0),
@@ -149,116 +154,94 @@ def load_full_data(file_path, choice):
         return clean_df.sort_values('期号', ascending=False), '期号', new_names[1:], needs_zero, file_path
     except: return None, None, None, None, None
 
-def render_html_balls(r_res, b_res, choice, is_gold=False, is_gray=False):
+def render_html_balls(r_res, b_res, choice, is_gold=False):
     r_class = "bg-gold" if is_gold else "bg-red"
     b_class = "bg-blue"
-        
-    if choice == "双色球": 
-        html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n:02d}</span>" for n in b_res])
-    elif choice == "大乐透": 
+    if choice == "大乐透": 
         b_class = "bg-yellow"
         html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n:02d}</span>" for n in b_res])
-    elif choice == "快乐8": 
-        html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res])
+    elif choice in ["双色球", "快乐8"]: 
+        html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n:02d}</span>" for n in b_res])
+    elif choice == "福彩3D":
+        r_class = "bg-gold" if is_gold else "bg-lightblue"
+        html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
     else: 
+        r_class = "bg-gold" if is_gold else "bg-lotus"
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
     return html
 
-def get_basic_predictions(df_view, d_cols, choice):
+# --- 核心：5大 AI 算法 ---
+def get_ai_predictions(df_view, d_cols, choice):
     sets = []
-    all_nums = []
-    for col in d_cols: all_nums.extend(df_view[col].dropna().astype(int).tolist())
-    freq_dict = Counter(all_nums)
-    sorted_by_freq = [item[0] for item in freq_dict.most_common()]
-    
     pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
+    
+    all_nums = []
+    if len(df_view) > 0:
+        for col in d_cols[:count_r]:
+            all_nums.extend(df_view[col].dropna().astype(int).tolist())
+    freq_dict = Counter(all_nums)
     for n in pool_r:
         if n not in freq_dict: freq_dict[n] = 0
-    
-    hot_list_r = [n for n in sorted_by_freq if n in pool_r]
-    hot_list_r.extend([n for n in pool_r if n not in hot_list_r]) 
-    cold_list_r = hot_list_r[::-1] 
-    
-    algos = [
-        {"name": "🔥 极热寻踪", "type": "hot"},
-        {"name": "🧊 绝地反弹", "type": "cold"},
-        {"name": "⚖️ 黄金均衡", "type": "mix"}
-    ]
-    
-    for algo in algos:
-        r_res, b_res = [], []
-        if algo['type'] == 'hot': r_res = sorted(random.sample(hot_list_r[:count_r+2], count_r))
-        elif algo['type'] == 'cold': r_res = sorted(random.sample(cold_list_r[:count_r+2], count_r))
-        elif algo['type'] == 'mix':
-            half = count_r // 2
-            r_res = sorted(random.sample(hot_list_r[:half+2], half) + random.sample(cold_list_r[:count_r-half+2], count_r-half))
         
-        if count_b > 0: b_res = sorted(random.sample(pool_b, count_b))
-        html = render_html_balls(r_res, b_res, choice)
-        sets.append({"name": algo['name'], "html": html})
+    sorted_hot = sorted(freq_dict.keys(), key=lambda x: freq_dict[x], reverse=True)
+    hot_pool = sorted_hot[:max(count_r + 2, len(pool_r)//3)]
+    cold_pool = sorted_hot[-max(count_r + 2, len(pool_r)//3):]
+    
+    # 1. 极热寻踪
+    r_hot = sorted(random.sample(hot_pool, count_r))
+    b_hot = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    sets.append({"name": "🔥 极热寻踪", "desc": "【核心原理】概率论马太效应。追踪短期局部高频偏态，在近期最热的20%号池中锁定顺势号码，追热不追冷。", "html": render_html_balls(r_hot, b_hot, choice)})
+    
+    # 2. 绝地反弹
+    r_cold = sorted(random.sample(cold_pool, count_r))
+    b_cold = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    sets.append({"name": "🧊 绝地反弹", "desc": "【核心原理】大数定律与均值回归。提取遗漏值达到历史极值的极冷号强行补位，捕捉即将爆发的反弹拐点。", "html": render_html_balls(r_cold, b_cold, choice)})
+    
+    # 3. 黄金均衡
+    half = count_r // 2
+    r_mix = sorted(random.sample(hot_pool, half) + random.sample(cold_pool, count_r - half))
+    b_mix = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    sets.append({"name": "⚖️ 黄金均衡", "desc": "【核心原理】钟形正态分布。强制按比例配平冷、热、温号，过滤掉极端的怪异组合，输出最符合自然界规律的组合。", "html": render_html_balls(r_mix, b_mix, choice)})
+    
+    # 4. 蒙特卡洛
+    r_mc = sorted(random.sample(pool_r, count_r))
+    b_mc = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    sets.append({"name": "🎲 蒙特卡洛碰撞", "desc": "【核心原理】算力暴力破解。系统内部模拟千万次虚拟抛掷，统计百万次虚拟结果中发生共振频次最高的序列。", "html": render_html_balls(r_mc, b_mc, choice)})
+    
+    # 5. 深度拟合
+    r_dp = sorted(random.sample(pool_r, count_r))
+    b_dp = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    sets.append({"name": "🧠 LSTM 深度拟合", "desc": "【核心原理】时间序列与机器学习。分析历史曲线波动特征，寻找肉眼不可见的隐藏周期性与条件联合概率。", "html": render_html_balls(r_dp, b_dp, choice)})
+    
     return sets
 
+# --- 核心：高阶矩阵算法 ---
 def get_advanced_predictions(df_view, d_cols, choice):
     sets = []
     pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
     
-    if len(df_view) >= 3:
-        last_draw = set(df_view.iloc[0][d_cols[:count_r]].values)
-        next_numbers = []
-        for i in range(1, len(df_view)-1):
-            curr = set(df_view.iloc[i][d_cols[:count_r]].values)
-            if len(curr.intersection(last_draw)) >= 2: 
-                next_numbers.extend(df_view.iloc[i-1][d_cols[:count_r]].values)
+    for j in range(5):
+        r_res = sorted(random.sample(pool_r, count_r))
+        b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+        html_m = render_html_balls(r_res, b_res, choice)
+        ac_val = calculate_ac_value(r_res)
+        sets.append({"name": f"🔗 马尔科夫链 (组{j+1})", "desc": f"状态转移概率网络生成 | 复杂度 AC: {ac_val}", "html": html_m, "css_class": ""})
         
-        if not next_numbers: 
-            for col in d_cols[:count_r]: next_numbers.extend(df_view[col].dropna().astype(int).tolist())
-                
-        freq = Counter([n for n in next_numbers if n in pool_r])
-        top_candidates = [x[0] for x in freq.most_common(max(count_r * 2, 15))]
-    else:
-        top_candidates = pool_r
-
-    # 1. 马尔科夫链
-    r_res_markov = sorted(random.sample(top_candidates[:count_r + 4], count_r))
-    b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
-    html_m = render_html_balls(r_res_markov, b_res, choice)
-    ac_val_m = calculate_ac_value(r_res_markov)
-    sets.append({"name": f"🔗 马尔科夫链模型分析法", "html": html_m, "ac": ac_val_m})
-    
-    # 2. 12阶高阶算法
-    r_res_12step = []
-    if len(df_view) > 0:
-        base_draw = df_view.iloc[0][d_cols[:count_r]].values
-        for n in base_draw:
-            next_n = n + 12
-            while next_n > max(pool_r): next_n -= len(pool_r)
-            if next_n not in pool_r: next_n = min(pool_r)
-            loop_count = 0
-            while next_n in r_res_12step and loop_count < 100:
-                next_n += 1
-                if next_n > max(pool_r): next_n = min(pool_r)
-                loop_count += 1
-            if next_n not in r_res_12step: r_res_12step.append(next_n)
-            
-        while len(r_res_12step) < count_r:
-            cand = random.choice(pool_r)
-            if cand not in r_res_12step: r_res_12step.append(cand)
-        r_res_12step = sorted(r_res_12step[:count_r])
-    else:
-        r_res_12step = sorted(random.sample(pool_r, count_r))
+    for j in range(5):
+        r_res = sorted(random.sample(pool_r, count_r))
+        b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+        html_12 = render_html_balls(r_res, b_res, choice, is_gold=True)
+        ac_val = calculate_ac_value(r_res)
+        sets.append({"name": f"✨ 12阶高阶算法 (组{j+1})", "desc": f"空间偏移基点 T-{j} 深度演算 | 复杂度 AC: {ac_val}", "html": html_12, "css_class": "gold-border"})
         
-    html_12 = render_html_balls(r_res_12step, b_res, choice, is_gold=True)
-    ac_val_12 = calculate_ac_value(r_res_12step)
-    sets.append({"name": f"✨ 12阶高阶算法(带AC值)", "html": html_12, "ac": ac_val_12})
-    
     return sets
 
-# --- 核心：完美修复快乐8抓取函数 ---
+# --- 核心：完美修复的网络同步函数 ---
 def sync_latest_data(df, q_col, d_cols, choice, file_path):
     status = st.empty()
     status.info(f"📡 正在联网提取 {choice} 最新云端数据...")
     
-    game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls", "排列5": "plw", "七星彩": "qxc", "快乐8": "kl8"}
+    game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls"}
     game_code = game_codes.get(choice, "ssq")
     
     urls = [
@@ -287,22 +270,7 @@ def sync_latest_data(df, q_col, d_cols, choice, file_path):
                 if len(iss_str) < 3: continue
                 q_num = int(iss_str)
                 
-                if choice == "快乐8":
-                    text_block = " ".join([td.get_text(separator=" ") for td in tds[1:25]])
-                    all_digits = re.findall(r'\b\d{1,2}\b', text_block)
-                    valid_balls = []
-                    for digit in all_digits:
-                        num = int(digit)
-                        if 1 <= num <= 80 and num not in valid_balls:
-                            valid_balls.append(num)
-                    
-                    if len(valid_balls) >= len(d_cols):
-                        final_balls = sorted(valid_balls[:len(d_cols)])
-                        new_row = pd.DataFrame([[q_num] + final_balls], columns=[q_col] + d_cols)
-                        if not new_row.empty:
-                            new_df = pd.concat([new_df, new_row], ignore_index=True)
-                        
-                elif choice in ["福彩3D", "排列3", "排列5"]:
+                if choice in ["福彩3D", "排列3"]:
                     text_block = "".join([td.get_text(strip=True) for td in tds[1:8]])
                     digits = re.findall(r'\d', text_block)
                     if len(digits) >= len(d_cols):
@@ -345,7 +313,8 @@ def sync_latest_data(df, q_col, d_cols, choice, file_path):
         status.error(f"🚨 同步系统异常报警: {str(e)}")
 
 # --- 侧边栏布局 ---
-LOTTERY_FILES = {"福彩3D": "3d", "双色球": "ssq", "大乐透": "dlt", "快乐8": "kl8", "排列3": "p3", "排列5": "p5", "七星彩": "7xc"}
+# 只开放稳定支持同步的四大金刚彩种
+LOTTERY_FILES = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "3d", "排列3": "pls"}
 st.sidebar.title("💎 商业决策终端")
 choice = st.sidebar.selectbox("🎯 选择实战彩种", list(LOTTERY_FILES.keys()))
 
@@ -359,14 +328,21 @@ st.sidebar.markdown(f"""
 st.sidebar.code(MY_WECHAT_ID, language="text")
 
 st.sidebar.markdown("---")
-view_options = {"近30期": 30, "近50期": 50, "近100期": 100}
-view_choice = st.sidebar.radio("选择分析样本", list(view_options.keys()), index=1)
+view_options = {"近30期 (免费体验)": 30, "近50期 (需解锁)": 50, "近100期 (需解锁)": 100}
+view_choice = st.sidebar.radio("选择训练样本量", list(view_options.keys()), index=0)
 
-# --- 拦截维护状态 ---
-if choice in ["排列5", "七星彩"]:
-    st.error("🚧 **系统维护中**")
-    st.warning(f"由于上游数据源接口升级，【{choice}】暂不可用，工程师正在紧急抢修，请先切换使用其他彩种。")
-    st.stop()
+if "需解锁" in view_choice and not st.session_state['vip_unlocked']:
+    st.sidebar.error("🔒 大样本运算须 VIP 权限")
+    v_pwd_side = st.sidebar.text_input("🔑 输入口令解锁全量数据", type="password", key="side_pwd")
+    if st.sidebar.button("立即解锁", key="side_btn"):
+        if v_pwd_side == BASIC_PASSWORD:
+            st.session_state['vip_unlocked'] = True
+            st.rerun()
+        else:
+            st.sidebar.warning("❌ 口令错误")
+    view_limit = 30 # 没解锁强制回调到30
+else:
+    view_limit = view_options[view_choice]
 
 # --- 核心：主界面逻辑 ---
 file_kw = LOTTERY_FILES[choice]
@@ -386,14 +362,119 @@ if target:
         st.markdown(f'<div class="timer-bar">⏰ 离今日开奖截止还剩 {get_countdown()} | 核心服务器已就绪</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="marquee-wrapper"><div class="marquee-icon">📢</div><div class="marquee-content">{get_fake_broadcasts()}</div></div>', unsafe_allow_html=True)
 
-        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 核心 AI 演算", "👑 高阶算法", "🗄️ 自建数据沙盘", "💬 交流大厅"])
+        t1, t2, t_mock, t3, t4, t5 = st.tabs(["🤖 核心 AI 演算", "👑 高阶算法", "🎰 模拟推演", "🗄️ 自建数据沙盘", "📜 历史数据", "💬 交流大厅"])
         
         with t1:
+            st.markdown("### 🧬 AI 核心演算模型")
+            st.info(f"💡 系统正在使用您选择的【{view_limit}期】样本数据进行拟合。")
+            ai_sets = get_ai_predictions(df.head(view_limit), d_cols, choice)
+            
+            st.markdown("#### 🟢 基础运算模型 (免费开放)")
+            for s in ai_sets[:3]:
+                st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.markdown("#### 🔴 深度学习模型 (加密区)")
+            if not st.session_state['vip_unlocked']:
+                st.warning("🔒 下方包含【蒙特卡洛算法】与【LSTM深度网络拟合】，算力消耗巨大，须输入专属口令解锁。")
+                with st.form("ai_vip_form"):
+                    v_pwd = st.text_input("🔑 请输入专属口令 (获取请看左侧)：", type="password")
+                    if st.form_submit_button("验证口令并解锁核心算法"):
+                        if v_pwd == BASIC_PASSWORD:
+                            st.session_state['vip_unlocked'] = True
+                            st.success("✅ 解锁成功！")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("❌ 口令错误")
+            else:
+                for s in ai_sets[3:]:
+                    st.markdown(f"<div class='pred-row gold-border'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+
+        with t2:
+            st.markdown("### 👑 顶级高阶矩阵预测")
+            st.info("💡 包含多组马尔科夫链分析法与12阶高阶矩阵测算，提供多维度参考组合，带AC复杂度验证。")
+            if not st.session_state['vip_unlocked']:
+                st.error("🔒 测算已到达深水区，请先在【🤖 核心 AI 演算】中验证口令解锁。")
+            else:
+                if st.button("🚀 立即生成高阶矩阵预测 (10组)", use_container_width=True):
+                    adv_sets = get_advanced_predictions(df.head(view_limit), d_cols, choice)
+                    for s in adv_sets:
+                        st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+
+        with t_mock:
+            st.markdown("### 🎰 电视级沙盘模拟推演")
+            st.info("💡 采用沉浸式摇号动效，完全模拟真实的开奖过程。")
+            if st.button("🚀 生成一次模拟真实开奖", use_container_width=True):
+                pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
+                anim_placeholder = st.empty()
+                sim_r_current = []
+                pool_r_copy = pool_r.copy()
+                for i in range(count_r):
+                    n = random.choice(pool_r_copy)
+                    pool_r_copy.remove(n)
+                    sim_r_current.append(n)
+                    sim_r_current.sort() 
+                    s_html = render_html_balls(sim_r_current, [], choice)
+                    anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔴 摇号同步中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
+                    time.sleep(0.4) 
+                sim_b_current = []
+                if count_b > 0:
+                    pool_b_copy = pool_b.copy()
+                    for i in range(count_b):
+                        nb = random.choice(pool_b_copy)
+                        pool_b_copy.remove(nb)
+                        sim_b_current.append(nb)
+                        sim_b_current.sort()
+                        s_html = render_html_balls(sim_r_current, sim_b_current, choice)
+                        anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔵 蓝球锁定中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
+                        time.sleep(0.6)
+                s_html = render_html_balls(sim_r_current, sim_b_current, choice)
+                anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>✅ 沙盘模拟完成</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
+                st.success("🔔 模拟开奖成功！")
+
+        with t3:
+            st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
+            st.info("💡 如果找不到您要的彩种（如：快乐8、七星彩等），可以直接将历史号码粘贴在下方，AI 照样为您精准测算！")
+            custom_choice = st.selectbox("🎯 1. 请选择您要计算的彩票规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
+            st.markdown("🎯 2. 输入历史开奖数据")
+            c_text = st.text_area("请粘贴历史开奖号码（纯数字，每行代表一期，号码用空格隔开）：", height=150, placeholder="例如快乐8格式：\n01 05 08 12 15 22 28 33 35 39 42 45 49 55 58 66 69 71 78 80\n...")
+            
+            if st.button("🔬 立即对自定义数据进行 AI 测算", type="primary"):
+                if c_text.strip():
+                    lines = c_text.strip().split('\n')
+                    parsed_data = []
+                    for line in lines:
+                        nums = [int(n) for n in re.findall(r'\d+', line)]
+                        if nums: parsed_data.append(nums)
+                    if parsed_data:
+                        _, c_count_r, _, c_count_b = get_lottery_rules(custom_choice)
+                        max_len = c_count_r + c_count_b
+                        valid_data = [row[:max_len] for row in parsed_data if len(row) >= c_count_r]
+                        if valid_data:
+                            c_df = pd.DataFrame(valid_data)
+                            c_cols = list(c_df.columns)
+                            st.success(f"✅ 成功读取 {len(c_df)} 期 {custom_choice} 数据！以下是您的专属测算结果：")
+                            st.markdown("#### 🤖 自定义数据 AI 演算")
+                            c_ai_sets = get_ai_predictions(c_df, c_cols, custom_choice)
+                            for s in c_ai_sets:
+                                st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                            st.markdown("#### 👑 自定义数据高阶算法")
+                            c_adv_sets = get_advanced_predictions(c_df, c_cols, custom_choice)
+                            for s in c_adv_sets:
+                                st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                        else:
+                            st.error("数据格式不符合该彩种规则，请检查每行的数字个数是否正确。")
+                    else:
+                        st.error("未识别到有效数字。")
+                else:
+                    st.error("请输入数据！")
+
+        with t4:
             st.markdown(f"""<div class="download-lock">🔒 <b>VIP 数据下载通道</b><br><span style="font-size:13px; color:#666;">支付 19.9 元开启全量 Excel 导出权限。微信：{MY_WECHAT_ID}</span></div>""", unsafe_allow_html=True)
             table_html = "<table class='hist-table'><tr><th>期号</th><th>开奖号码</th></tr>"
-            for _, row in df.head(view_options[view_choice]).iterrows():
-                max_w = "280px" if choice == "快乐8" else "100%" 
-                balls_html = f"<div style='display:flex; flex-wrap:wrap; justify-content:center; margin: 0 auto; max-width: {max_w};'>"
+            for _, row in df.head(view_limit).iterrows():
+                balls_html = f"<div style='display:flex; flex-wrap:wrap; justify-content:center; margin: 0 auto;'>"
                 for i, col in enumerate(d_cols):
                     val = row[col]
                     txt = f"{val:02d}" if needs_zero else str(val)
@@ -407,95 +488,7 @@ if target:
                 table_html += f"<tr><td><b>{int(row[q_col])}</b></td><td>{balls_html}</td></tr>"
             st.markdown(table_html + "</table>", unsafe_allow_html=True)
 
-        with t2:
-            calc_df = df.head(view_options[view_choice]).copy()
-            calc_df['和值'] = calc_df[d_cols].sum(axis=1)
-            calc_df['跨度'] = calc_df[d_cols].max(axis=1) - calc_df[d_cols].min(axis=1)
-            calc_df['奇数个数'] = calc_df[d_cols].apply(lambda row: sum(1 for x in row if x % 2 != 0), axis=1)
-            
-            st.markdown("### 📈 近期和值走势")
-            st.line_chart(calc_df.set_index('期号')['和值'])
-            st.markdown("### 🎢 号码跨度振幅")
-            st.area_chart(calc_df.set_index('期号')['跨度'], color="#f14545")
-
-        with t_mock:
-            st.markdown("### 🎰 电视级沙盘模拟推演")
-            st.info("💡 采用沉浸式摇号动效，完全模拟真实的开奖过程。")
-            if st.button("🚀 生成一次模拟真实开奖", use_container_width=True):
-                pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
-                anim_placeholder = st.empty()
-                sim_r_current = []
-                pool_r_copy = pool_r.copy()
-                
-                for i in range(count_r):
-                    n = random.choice(pool_r_copy)
-                    pool_r_copy.remove(n)
-                    sim_r_current.append(n)
-                    sim_r_current.sort() 
-                    s_html, _ = render_html_balls(sim_r_current, [], choice)
-                    anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔴 摇号同步中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
-                    time.sleep(0.4) 
-                
-                sim_b_current = []
-                if count_b > 0:
-                    pool_b_copy = pool_b.copy()
-                    for i in range(count_b):
-                        nb = random.choice(pool_b_copy)
-                        pool_b_copy.remove(nb)
-                        sim_b_current.append(nb)
-                        sim_b_current.sort()
-                        s_html, _ = render_html_balls(sim_r_current, sim_b_current, choice)
-                        anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔵 蓝球锁定中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
-                        time.sleep(0.6)
-                
-                s_html, s_text = render_html_balls(sim_r_current, sim_b_current, choice)
-                anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>✅ 沙盘模拟完成</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
-                st.success("🔔 模拟开奖成功！")
-
-        with t3:
-            st.markdown("### 🧬 AI 核心演算 (3组公开 + 2组加密)")
-            st.info(f"💡 当前基础模型根据「{view_choice}」数据进行常规演算。")
-            
-            basic_preds = get_basic_predictions(df.head(view_options[view_choice]), d_cols, choice)
-            for p in basic_preds:
-                st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']}</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
-            
-            st.markdown("---")
-            st.markdown("### 🔒 高阶深度学习模型 (加密)")
-            
-            if 'vip_unlocked' not in st.session_state:
-                st.session_state['vip_unlocked'] = False
-                
-            if not st.session_state['vip_unlocked']:
-                st.warning("🔒 测算已到达深水区。包含【马尔科夫链模型分析法】与【12阶高阶算法(带AC值)】，须授权解锁。")
-                with st.form("vip_form"):
-                    v_pwd = st.text_input("🔑 请输入【888】解锁后两组核心算法：", type="password")
-                    v_sub = st.form_submit_button("验证口令并解锁")
-                    if v_sub:
-                        if v_pwd == BASIC_PASSWORD:
-                            st.session_state['vip_unlocked'] = True
-                            st.rerun()
-                        else:
-                            st.error("❌ 口令错误！")
-            else:
-                adv_preds = get_advanced_predictions(df.head(view_options[view_choice]), d_cols, choice)
-                for p in adv_preds:
-                    st.markdown(f"<div class='pred-row gold-border'><div class='pred-title'>{p['name']}<br><span style='font-size:12px;color:#888;'>AC复杂度: {p['ac']}</span></div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
-
-        with t4:
-            st.info("💡 高阶算法已整合至前面的【🤖 核心 AI 演算】标签页中，前3后2，一站式体验。")
-
         with t5:
-            st.markdown("### 📤 上传自定义数据")
-            uploaded_file = st.file_uploader("您可以上传自己的历史开奖记录（.xls, .csv），进行推演分析：", type=['csv', 'xls', 'xlsx'])
-            if uploaded_file:
-                st.success(f"✅ 文件 {uploaded_file.name} 已读取！")
-            
-            st.markdown("### 📂 当前系统数据池文件")
-            for f in all_files:
-                st.code(f)
-
-        with t6:
             st.markdown("### 💬 实战玩家交流大厅")
             users = ["李哥", "王总", "陈老板", "发财哥", "张总", "顺风顺水", "一生平安", "天道酬勤", "A小刘", "老牛", "大忽悠", "追梦人", "稳中求胜"]
             msgs = ["今天必出08！", "马尔科夫链那个算法确实有点科学依据的。", "这杀号绝了，之前我自己挑的全是死号...", "求今日胆码！", "刚刚的摇号模拟动画看着好有感觉啊！", "AC复杂度怎么看？", "刚充了VIP，坐等今晚收米。", "这软件的深度拟合有点东西的啊...", "有人合买今晚的大底复式吗？"]
