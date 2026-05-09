@@ -51,7 +51,6 @@ st.markdown("""
     
     .pred-row { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 5px; border-left: 5px solid #f14545; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; position: relative; }
     .pred-row.gold-border { border-left: 5px solid #FFD700; background: #fffdf5; }
-    .pred-row.dark-border { border-left: 5px solid #555; background: #f0f0f0; }
     .pred-title { width: 180px; font-weight: bold; color: #444; font-size: 15px; }
     .ai-desc { font-size: 11px; color: #777; margin-top: 5px; display: block; line-height: 1.3; font-weight: normal; }
     .pred-balls { flex-grow: 1; display: flex; flex-wrap: wrap; max-width: 400px;} 
@@ -71,7 +70,6 @@ st.markdown("""
     .comment-user { font-weight: bold; color: #1f77b4; font-size: 14px; }
     .comment-time { color: #999; font-size: 12px; }
     .comment-body { color: #444; font-size: 14px; line-height: 1.5; }
-    .legal-footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #eaeaea; text-align: center; color: #999; font-size: 12px; line-height: 1.8; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -516,7 +514,7 @@ if target:
                 st.success("🔔 模拟开奖成功！")
 
         with t3:
-            st.markdown("### 🧬 AI 核心演算模型 (免费福利)")
+            st.markdown("### 🧬 AI 核心演算模型 (完全免费)")
             st.info(f"💡 系统正自动提取您设置的【近 {view_limit} 期】真实开奖数据进行模型拟合。每次点击均可刷新最优组合！")
             
             # --- 完全免密：直接显示生成按钮 ---
