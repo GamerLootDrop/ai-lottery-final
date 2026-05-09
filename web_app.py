@@ -517,7 +517,6 @@ if target:
             st.markdown("### 🧬 AI 核心演算模型 (完全免费)")
             st.info(f"💡 系统正自动提取您设置的【近 {view_limit} 期】真实开奖数据进行模型拟合。每次点击均可刷新最优组合！")
             
-            # --- 完全免密：直接显示生成按钮 ---
             if st.button("🎯 立即启动 AI 模型演算 (免费生成 5 组)", type="primary", use_container_width=True):
                 st.session_state['ai_click_count'] += 1
                 
@@ -623,3 +622,4 @@ if target:
                 st.rerun()
 else:
     st.warning("⚠️ 目录下未找到当前彩种的数据文件。")
+# ===== 代码到底了，请确保这一行也复制进去了 =====
