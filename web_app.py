@@ -445,7 +445,7 @@ view_options = {"近30期": 30, "近50期": 50, "近100期": 100}
 view_choice = st.sidebar.radio("选择分析样本", list(view_options.keys()), index=1)
 
 # --- 拦截维护状态 ---
-if choice in ["快乐8", "排列5", "七星彩"]:
+if choice in ["排列5", "七星彩"]:
     st.error("🚧 **系统维护中**")
     st.warning(f"由于上游数据源接口升级，【{choice}】暂不可用，工程师正在紧急抢修，请先切换使用其他彩种。")
     st.stop()
