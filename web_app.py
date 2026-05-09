@@ -287,7 +287,6 @@ def sync_latest_data(df, q_col, d_cols, choice, file_path):
                 if len(iss_str) < 3: continue
                 q_num = int(iss_str)
                 
-                # 修复核心：无视表格结构，直接用正则强行把数字吸出来！
                 if choice == "快乐8":
                     text_block = " ".join([td.get_text(separator=" ") for td in tds[1:25]])
                     all_digits = re.findall(r'\b\d{1,2}\b', text_block)
@@ -457,7 +456,6 @@ if target:
             st.markdown("### 🧬 AI 核心演算 (3组公开 + 2组加密)")
             st.info(f"💡 当前基础模型根据「{view_choice}」数据进行常规演算。")
             
-            # --- 前3组 公开算法 ---
             basic_preds = get_basic_predictions(df.head(view_options[view_choice]), d_cols, choice)
             for p in basic_preds:
                 st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']}</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
@@ -465,7 +463,6 @@ if target:
             st.markdown("---")
             st.markdown("### 🔒 高阶深度学习模型 (加密)")
             
-            # --- 后2组 加锁算法 ---
             if 'vip_unlocked' not in st.session_state:
                 st.session_state['vip_unlocked'] = False
                 
