@@ -217,11 +217,13 @@ def render_html_balls(r_res, b_res, choice, is_gold=False, is_gray=False):
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n}</span>" for n in b_res])
         text = f"推荐号码: " + " ".join([str(n) for n in r_res]) + (" | " + f"{b_res[0]}" if b_res else "")
     elif choice == "快乐8":
-                    nums = [int(td.text.strip()) for td in tds[1:21] if td.text.strip().isdigit()]
-                    # 👇 加上这层质检：只有真正抓够了20个球的数据，才允许合并进表格
-                    if len(nums) == 20:
-                        new_row = pd.DataFrame([[q_num] + nums], columns=[q_col] + d_cols)
-                        new_df = pd.concat([new_df, new_row], ignore_index=True)
+                    # 终极拦截：只有这一行的格子数 >= 21（1个期号+至少20个球），才允许去拿数据
+                    if len(tds) >= 21:
+                        nums = [int(tds[i].text.strip()) for i in range(1, 21) if tds[i].text.strip().isdigit()]
+                        # 严格质检：只有真正抓够了20个球的数据，才允许合并进表格
+                        if len(nums) == 20:
+                            new_row = pd.DataFrame([[q_num] + nums], columns=[q_col] + d_cols)
+                            new_df = pd.concat([new_df, new_row], ignore_index=True)
     elif choice == "福彩3D": 
         r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-lightblue')
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
