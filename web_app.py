@@ -8,17 +8,12 @@ from bs4 import BeautifulSoup
 import re
 from collections import Counter
 from datetime import datetime, timedelta
-import numpy as np 
-import hashlib
-import base64
 
 # =========================================================
 # 💰💰💰 老板专属配置区 (只需修改这里，其他地方不用动) 💰💰💰
 # =========================================================
 MY_WECHAT_ID = "252766667"           # 已帮您填好微信号
 BASIC_PASSWORD = "888"               # 基础版解锁口令 (引流用)
-VIP_BACKDOOR = "888"                 # VIP超级后门 (老板自己看用的)
-SECRET_KEY = "Partner_Fortune_2026_TopSecret" # 卡密防伪终极密钥
 # =========================================================
 
 # --- 0. 隐形访客统计 (仅后台记录) ---
@@ -51,13 +46,9 @@ st.markdown("""
     
     .pred-row { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 5px; border-left: 5px solid #f14545; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; position: relative; }
     .pred-row.gold-border { border-left: 5px solid #FFD700; background: #fffdf5; }
-    .pred-row.dark-border { border-left: 5px solid #555; background: #f0f0f0; }
     .pred-title { width: 150px; font-weight: bold; color: #444; font-size: 15px; }
     .pred-balls { flex-grow: 1; display: flex; flex-wrap: wrap; max-width: 400px;} 
     .pred-ball { display: inline-block; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; color: white; font-weight: bold; margin: 3px 4px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: all 0.3s ease; }
-    
-    .vip-locked { filter: blur(6px); user-select: none; pointer-events: none; }
-    .lock-overlay { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.95); padding: 6px 15px; border: 2px dashed #ff4b4b; border-radius: 5px; color: #ff4b4b; font-size: 14px; font-weight: bold; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     
     .timer-bar { background: linear-gradient(90deg, #1d2b64, #f8cdda); color: white; padding: 10px; text-align: center; border-radius: 5px; font-weight: bold; margin-bottom: 15px; }
     .wechat-box { background: #f0f2f6; border-radius: 10px; padding: 15px; border: 1px solid #dcdfe6; text-align: center; margin-bottom: 10px;}
@@ -73,28 +64,8 @@ st.markdown("""
     .comment-user { font-weight: bold; color: #1f77b4; font-size: 14px; }
     .comment-time { color: #999; font-size: 12px; }
     .comment-body { color: #444; font-size: 14px; line-height: 1.5; }
-    .legal-footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #eaeaea; text-align: center; color: #999; font-size: 12px; line-height: 1.8; }
     </style>
 """, unsafe_allow_html=True)
-
-# --- 卡密验证核心逻辑 ---
-def verify_card_key(user_input_key):
-    if not user_input_key: return False, ""
-    if user_input_key == VIP_BACKDOOR: return True, "老板专属后门已触发！"
-    try:
-        decoded_bytes = base64.b64decode(user_input_key + "===")
-        decoded_str = decoded_bytes.decode()
-        parts = decoded_str.split('-')
-        if len(parts) != 3 or parts[0] != 'VIP': return False, "卡密格式错误，请检查！"
-        card_hash, expire_date_str = parts[1], parts[2]
-        expected_raw = f"{expire_date_str}|{SECRET_KEY}"
-        expected_hash = hashlib.md5(expected_raw.encode()).hexdigest()[:6]
-        if card_hash != expected_hash: return False, "卡密无效或系伪造！"
-        expire_date = datetime.strptime(expire_date_str, '%Y%m%d').date()
-        if datetime.now().date() > expire_date: return False, f"该卡密已于 {expire_date_str} 过期。"
-        return True, "验证通过！高级权限已解锁。"
-    except:
-        return False, "卡密解析失败，请检查输入。"
 
 # --- 工具函数 ---
 def get_countdown():
@@ -107,8 +78,8 @@ def get_countdown():
     return f"{hours:02d}时{minutes:02d}分{seconds:02d}秒"
 
 def get_fake_broadcasts():
-    cities = ["广东", "浙江", "江苏", "山东", "河南", "四川", "北京", "上海"]
-    algos = ["极热寻踪", "绝地反弹", "黄金均衡", "马尔科夫链", "12阶高阶矩阵"]
+    cities = ["广东", "浙江", "江苏", "山东", "河南", "四川", "北京", "上海", "湖南"]
+    algos = ["极热寻踪", "绝地反弹", "黄金均衡", "马尔科夫链模型分析法", "12阶高阶算法"]
     broadcast_texts = []
     for _ in range(5):
         city = random.choice(cities)
@@ -147,28 +118,11 @@ def calculate_ac_value(nums):
     ac = len(diffs) - (len(nums) - 1)
     return max(0, ac)
 
-def calculate_kill_numbers(df_view, d_cols, choice):
-    pool_r, count_r, _, _ = get_lottery_rules(choice)
-    gaps = {n: 0 for n in pool_r}
-    if df_view is not None and not df_view.empty:
-        for n in pool_r:
-            gap = 0
-            for _, row in df_view.iterrows():
-                row_vals = row[d_cols[:count_r]].values
-                if n in row_vals:
-                    break
-                gap += 1
-            gaps[n] = gap
-    sorted_gaps = sorted(gaps.items(), key=lambda x: x[1], reverse=True)
-    kill_count = max(3, count_r // 2)
-    kill_nums = sorted([x[0] for x in sorted_gaps[:kill_count]])
-    return kill_nums
-
 # --- 核心：数据载入 ---
 @st.cache_data
 def load_full_data(file_path, choice):
     try:
-        raw_df = pd.read_excel(file_path) if file_path.endswith('.xls') else pd.read_csv(file_path)
+        raw_df = pd.read_excel(file_path) if file_path.endswith('.xls') or file_path.endswith('.xlsx') else pd.read_csv(file_path)
         raw_df.columns = [str(c).strip() for c in raw_df.columns]
         q_col = next((c for c in raw_df.columns if '期' in c or 'NO' in c.upper()), raw_df.columns[0])
         raw_df[q_col] = pd.to_numeric(raw_df[q_col], errors='coerce')
@@ -196,52 +150,19 @@ def load_full_data(file_path, choice):
     except: return None, None, None, None, None
 
 def render_html_balls(r_res, b_res, choice, is_gold=False, is_gray=False):
-    if is_gray:
-        r_class = "bg-gray"
-        b_class = "bg-gray"
-    else:
-        r_class = "bg-gold" if is_gold else "bg-red"
-        b_class = "bg-blue"
+    r_class = "bg-gold" if is_gold else "bg-red"
+    b_class = "bg-blue"
         
     if choice == "双色球": 
         html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n:02d}</span>" for n in b_res])
-        text = f"推荐号码: " + " ".join([f"{n:02d}" for n in r_res]) + (" | " + f"{b_res[0]:02d}" if b_res else "")
     elif choice == "大乐透": 
-        if not is_gray: b_class = "bg-yellow"
-        r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-blue')
+        b_class = "bg-yellow"
         html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n:02d}</span>" for n in b_res])
-        text = f"推荐号码: " + " ".join([f"{n:02d}" for n in r_res]) + (" | " + " ".join([f"{n:02d}" for n in b_res]) if b_res else "")
-    elif choice == "七星彩": 
-        if not is_gray: b_class = "bg-yellow"
-        r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-purple')
-        html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n}</span>" for n in b_res])
-        text = f"推荐号码: " + " ".join([str(n) for n in r_res]) + (" | " + f"{b_res[0]}" if b_res else "")
-    elif choice == "快乐8":
-                    # 【终极暴力提取法】：无视网页乱码，直接抓取整行所有1到80的数字
-                    row_text = " ".join([td.text for td in tds[1:]])
-                    import re  # 确保调用了正则工具
-                    all_nums = [int(n) for n in re.findall(r'\b\d{1,2}\b', row_text)]
-                    
-                    # 过滤掉网页后半截的什么和值、奇偶统计，只要 1~80 之间的纯彩票号码
-                    valid_balls = []
-                    for n in all_nums:
-                        if 1 <= n <= 80 and n not in valid_balls:
-                            valid_balls.append(n)
-                    
-                    # 只要精准抠出了至少20个球，截取前20个，按从小到大排好，直接暴力写入！
-                    if len(valid_balls) >= 20:
-                        final_20_balls = sorted(valid_balls[:20])
-                        new_row = pd.DataFrame([[q_num] + final_20_balls], columns=[q_col] + d_cols)
-                        new_df = pd.concat([new_df, new_row], ignore_index=True)
-    elif choice == "福彩3D": 
-        r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-lightblue')
-        html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
-        text = f"推荐号码: " + " ".join([str(n) for n in r_res])
+    elif choice == "快乐8": 
+        html = "".join([f"<span class='pred-ball {r_class}'>{n:02d}</span>" for n in r_res])
     else: 
-        r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-lotus')
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
-        text = f"推荐号码: " + " ".join([str(n) for n in r_res])
-    return html, text
+    return html
 
 def get_basic_predictions(df_view, d_cols, choice):
     sets = []
@@ -266,28 +187,21 @@ def get_basic_predictions(df_view, d_cols, choice):
     
     for algo in algos:
         r_res, b_res = [], []
-        if algo['type'] == 'hot':
-            r_res = sorted(random.sample(hot_list_r[:count_r+2], count_r))
-        elif algo['type'] == 'cold':
-            r_res = sorted(random.sample(cold_list_r[:count_r+2], count_r))
+        if algo['type'] == 'hot': r_res = sorted(random.sample(hot_list_r[:count_r+2], count_r))
+        elif algo['type'] == 'cold': r_res = sorted(random.sample(cold_list_r[:count_r+2], count_r))
         elif algo['type'] == 'mix':
             half = count_r // 2
             r_res = sorted(random.sample(hot_list_r[:half+2], half) + random.sample(cold_list_r[:count_r-half+2], count_r-half))
         
         if count_b > 0: b_res = sorted(random.sample(pool_b, count_b))
-        html, text = render_html_balls(r_res, b_res, choice)
-        sets.append({"name": algo['name'], "html": html, "text": text})
+        html = render_html_balls(r_res, b_res, choice)
+        sets.append({"name": algo['name'], "html": html})
     return sets
 
 def get_advanced_predictions(df_view, d_cols, choice):
     sets = []
     pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
     
-    kill_nums = calculate_kill_numbers(df_view, d_cols, choice)
-    html_k, text_k = render_html_balls(kill_nums, [], choice, is_gray=True)
-    text_k = "[高危规避] " + text_k + " (大数据深度测算长期偏离值)"
-    sets.append({"name": "🚫 智能过滤杀号", "html": html_k, "text": text_k, "is_vip": True, "css_class": "dark-border"})
-
     if len(df_view) >= 3:
         last_draw = set(df_view.iloc[0][d_cols[:count_r]].values)
         next_numbers = []
@@ -297,148 +211,139 @@ def get_advanced_predictions(df_view, d_cols, choice):
                 next_numbers.extend(df_view.iloc[i-1][d_cols[:count_r]].values)
         
         if not next_numbers: 
-            for col in d_cols[:count_r]:
-                next_numbers.extend(df_view[col].dropna().astype(int).tolist())
+            for col in d_cols[:count_r]: next_numbers.extend(df_view[col].dropna().astype(int).tolist())
                 
         freq = Counter([n for n in next_numbers if n in pool_r])
         top_candidates = [x[0] for x in freq.most_common(max(count_r * 2, 15))]
     else:
         top_candidates = pool_r
 
-    for j in range(5):
-        r_res_markov = sorted(random.sample(top_candidates[:count_r + 4], count_r))
-        b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
-        html_m, text_m = render_html_balls(r_res_markov, b_res, choice)
-        ac_val = calculate_ac_value(r_res_markov)
-        text_m += f" (经测算 AC复杂度: {ac_val})"
-        sets.append({"name": f"🔗 马尔科夫链 - 方案{j+1}", "html": html_m, "text": text_m, "is_vip": True, "css_class": ""})
+    # 1. 马尔科夫链
+    r_res_markov = sorted(random.sample(top_candidates[:count_r + 4], count_r))
+    b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+    html_m = render_html_balls(r_res_markov, b_res, choice)
+    ac_val_m = calculate_ac_value(r_res_markov)
+    sets.append({"name": f"🔗 马尔科夫链模型分析法", "html": html_m, "ac": ac_val_m})
     
-    max_draws = min(5, len(df_view)) if len(df_view) > 0 else 0
-    for j in range(5):
-        r_res_12step = []
-        b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
-        
-        if j < max_draws:
-            base_draw = df_view.iloc[j][d_cols[:count_r]].values
-            for n in base_draw:
-                next_n = n + 12
-                while next_n > max(pool_r): next_n -= len(pool_r)
-                if next_n not in pool_r: next_n = min(pool_r)
-                loop_count = 0
-                while next_n in r_res_12step and loop_count < 100:
-                    next_n += 1
-                    if next_n > max(pool_r): next_n = min(pool_r)
-                    loop_count += 1
-                if next_n not in r_res_12step: r_res_12step.append(next_n)
-                
-            while len(r_res_12step) < count_r:
-                cand = random.choice(pool_r)
-                if cand not in r_res_12step: r_res_12step.append(cand)
-            r_res_12step = sorted(r_res_12step[:count_r])
-        else:
-            r_res_12step = sorted(random.sample(pool_r, count_r))
+    # 2. 12阶高阶算法
+    r_res_12step = []
+    if len(df_view) > 0:
+        base_draw = df_view.iloc[0][d_cols[:count_r]].values
+        for n in base_draw:
+            next_n = n + 12
+            while next_n > max(pool_r): next_n -= len(pool_r)
+            if next_n not in pool_r: next_n = min(pool_r)
+            loop_count = 0
+            while next_n in r_res_12step and loop_count < 100:
+                next_n += 1
+                if next_n > max(pool_r): next_n = min(pool_r)
+                loop_count += 1
+            if next_n not in r_res_12step: r_res_12step.append(next_n)
             
-        html_12, text_12 = render_html_balls(r_res_12step, b_res, choice, is_gold=True)
-        text_12 = "[至尊核心] " + text_12 + f" (空间偏移基点: 近期 T-{j})"
-        sets.append({"name": f"✨ 12阶位移 - 方案{j+1}", "html": html_12, "text": text_12, "is_vip": True, "css_class": "gold-border"})
+        while len(r_res_12step) < count_r:
+            cand = random.choice(pool_r)
+            if cand not in r_res_12step: r_res_12step.append(cand)
+        r_res_12step = sorted(r_res_12step[:count_r])
+    else:
+        r_res_12step = sorted(random.sample(pool_r, count_r))
+        
+    html_12 = render_html_balls(r_res_12step, b_res, choice, is_gold=True)
+    ac_val_12 = calculate_ac_value(r_res_12step)
+    sets.append({"name": f"✨ 12阶高阶算法(带AC值)", "html": html_12, "ac": ac_val_12})
     
     return sets
 
-# --- 核心：抓取函数 ---
-@st.cache_data(ttl=3600)
-def fetch_from_web(game_code, choice, d_cols_len):
-    urls = [f"https://datachart.500.com/{game_code}/history/newinc/history.php?limit=50", f"https://datachart.500.com/{game_code}/history/inc/history.php?limit=50"]
+# --- 核心：完美修复快乐8抓取函数 ---
+def sync_latest_data(df, q_col, d_cols, choice, file_path):
+    status = st.empty()
+    status.info(f"📡 正在联网提取 {choice} 最新云端数据...")
+    
+    game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls", "排列5": "plw", "七星彩": "qxc", "快乐8": "kl8"}
+    game_code = game_codes.get(choice, "ssq")
+    
+    urls = [
+        f"https://datachart.500.com/{game_code}/history/newinc/history.php?limit=50",
+        f"https://datachart.500.com/{game_code}/history/inc/history.php?limit=50"
+    ]
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    web_rows = []
-    for url in urls:
-        try:
+    new_df = pd.DataFrame(columns=[q_col] + d_cols)
+    
+    try:
+        import re
+        for url in urls:
             res = requests.get(url, headers=headers, timeout=10)
             res.encoding = 'utf-8'
             soup = BeautifulSoup(res.text, 'html.parser')
+            
             tdata = soup.find('tbody', id='tdata')
             trs = tdata.find_all('tr') if tdata else (soup.find_all('tr', class_=['t_tr1', 't_tr2', 't_tr']) or soup.find_all('tr'))
+            if not trs: continue
             
             for tr in trs:
                 tds = tr.find_all('td')
-                if len(tds) < d_cols_len + 1: continue 
+                if len(tds) < len(d_cols) + 1: continue 
                 
                 iss_str = re.sub(r'\D', '', tds[0].get_text(strip=True))
                 if len(iss_str) < 3: continue
-                if len(iss_str) > 12: iss_str = iss_str[:10]
-                issue_val = int("20" + iss_str) if len(iss_str) == 5 else int(iss_str)
+                q_num = int(iss_str)
                 
-                balls = []
+                # 修复核心：无视表格结构，直接用正则强行把数字吸出来！
                 if choice == "快乐8":
                     text_block = " ".join([td.get_text(separator=" ") for td in tds[1:25]])
-                    nums = [int(n) for n in re.findall(r'\b\d{1,2}\b', text_block)]
-                    balls = [n for n in nums if 1 <= n <= 80][:d_cols_len]
-                elif choice in ["排列5", "排列3", "福彩3D"]:
+                    all_digits = re.findall(r'\b\d{1,2}\b', text_block)
+                    valid_balls = []
+                    for digit in all_digits:
+                        num = int(digit)
+                        if 1 <= num <= 80 and num not in valid_balls:
+                            valid_balls.append(num)
+                    
+                    if len(valid_balls) >= len(d_cols):
+                        final_balls = sorted(valid_balls[:len(d_cols)])
+                        new_row = pd.DataFrame([[q_num] + final_balls], columns=[q_col] + d_cols)
+                        if not new_row.empty:
+                            new_df = pd.concat([new_df, new_row], ignore_index=True)
+                        
+                elif choice in ["福彩3D", "排列3", "排列5"]:
                     text_block = "".join([td.get_text(strip=True) for td in tds[1:8]])
                     digits = re.findall(r'\d', text_block)
-                    balls = [int(d) for d in digits][:d_cols_len]
-                elif choice == "七星彩":
-                    rest_text = " ".join([td.get_text(separator=" ") for td in tds[1:10]])
-                    groups = re.findall(r'\d+', rest_text)
-                    for g in groups:
-                        if len(g) >= 3:
-                            for char in g: balls.append(int(char))
-                        else:
-                            balls.append(int(g))
-                    balls = balls[:d_cols_len]
+                    if len(digits) >= len(d_cols):
+                        nums = [int(d) for d in digits[:len(d_cols)]]
+                        new_row = pd.DataFrame([[q_num] + nums], columns=[q_col] + d_cols)
+                        new_df = pd.concat([new_df, new_row], ignore_index=True)
+                        
                 else:
                     rest_text = "   ".join([td.get_text(separator=" ") for td in tds[1:]])
-                    balls = [int(n) for n in re.findall(r'\d+', rest_text)]
-                    balls = [n for n in balls if 0 <= n <= 81][:d_cols_len]
-                
-                if len(balls) == d_cols_len:
-                    web_rows.append({"issue": issue_val, "balls": balls})
-            if web_rows: break 
-        except: continue
-    return web_rows
-
-def sync_latest_data(df, q_col, d_cols, choice, file_path):
-    status = st.empty()
-    game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls", "排列5": "plw", "七星彩": "qxc", "快乐8": "kl8"}
-    game_code = game_codes.get(choice, "ssq")
-    status.info(f"📡 正在联网获取 {choice} 最新开奖...")
-    
-    web_data = fetch_from_web(game_code, choice, len(d_cols))
-    
-    if web_data:
-        try:
-            clean_web_rows = []
-            for item in web_data:
-                safe_issue = int(str(item['issue'])[:12])
-                new_row = {q_col: safe_issue}
-                for i, col_name in enumerate(d_cols):
-                    new_row[col_name] = int(item['balls'][i])
-                clean_web_rows.append(new_row)
+                    nums_found = [int(n) for n in re.findall(r'\d+', rest_text)]
+                    if len(nums_found) >= len(d_cols):
+                        nums = nums_found[:len(d_cols)]
+                        new_row = pd.DataFrame([[q_num] + nums], columns=[q_col] + d_cols)
+                        new_df = pd.concat([new_df, new_row], ignore_index=True)
             
-            if not clean_web_rows:
-                status.warning("⚠️ 抓取到的数据格式异常，已终止同步。")
-                return
-
-            web_df = pd.DataFrame(clean_web_rows).astype('int64')
+            if not new_df.empty: break
+            
+        if not new_df.empty:
             df[q_col] = pd.to_numeric(df[q_col], errors='coerce').fillna(0).astype('int64')
             for c in d_cols:
                 df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).astype('int64')
-
-            updated = pd.concat([web_df, df], ignore_index=True)
+                new_df[c] = new_df[c].astype('int64')
+            new_df[q_col] = new_df[q_col].astype('int64')
+            
+            updated = pd.concat([new_df, df], ignore_index=True)
             updated = updated.drop_duplicates(subset=[q_col], keep='first').sort_values(q_col, ascending=False)
             updated = updated.head(2000)
             
             save_path = file_path if file_path.endswith('.csv') else file_path.replace('.xls', '_synced.csv')
             updated.to_csv(save_path, index=False, encoding='utf-8-sig')
             
-            status.success(f"✅ 同步成功！已更新 {len(clean_web_rows)} 期。")
+            status.success(f"✅ 云端同步成功！已为您更新数据。")
             st.cache_data.clear()
             time.sleep(1)
             st.rerun()
-        except Exception as e:
-            status.error(f"🚨 自动同步失败，建议手动更新本地文件。")
-            print(f"DEBUG: Sync Error - {str(e)}")
-    else:
-        status.error("❌ 抓取失败，请检查网络或源站。")
+        else:
+            status.error("❌ 未能从源站提取到有效开奖号码，请检查网络。")
+            
+    except Exception as e:
+        status.error(f"🚨 同步系统异常报警: {str(e)}")
 
 # --- 侧边栏布局 ---
 LOTTERY_FILES = {"福彩3D": "3d", "双色球": "ssq", "大乐透": "dlt", "快乐8": "kl8", "排列3": "p3", "排列5": "p5", "七星彩": "7xc"}
@@ -466,7 +371,7 @@ if choice in ["排列5", "七星彩"]:
 
 # --- 核心：主界面逻辑 ---
 file_kw = LOTTERY_FILES[choice]
-all_files = [f for f in os.listdir(".") if file_kw in f.lower() and (f.endswith('.xls') or f.endswith('.csv'))]
+all_files = [f for f in os.listdir(".") if file_kw in f.lower() and (f.endswith('.xls') or f.endswith('.xlsx') or f.endswith('.csv'))]
 target = next((f for f in all_files if '_synced' in f), all_files[0] if all_files else None)
 
 if target:
@@ -482,8 +387,7 @@ if target:
         st.markdown(f'<div class="timer-bar">⏰ 离今日开奖截止还剩 {get_countdown()} | 核心服务器已就绪</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="marquee-wrapper"><div class="marquee-icon">📢</div><div class="marquee-content">{get_fake_broadcasts()}</div></div>', unsafe_allow_html=True)
 
-        # 完美恢复并扩展为 7 个标签页：将模拟开奖单独提出！
-        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI 演算", "👑 高阶算法矩阵", "🗄️ 自建数据沙盘", "💬 交流大厅"])
+        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 核心 AI 演算", "👑 高阶算法", "🗄️ 自建数据沙盘", "💬 交流大厅"])
         
         with t1:
             st.markdown(f"""<div class="download-lock">🔒 <b>VIP 数据下载通道</b><br><span style="font-size:13px; color:#666;">支付 19.9 元开启全量 Excel 导出权限。微信：{MY_WECHAT_ID}</span></div>""", unsafe_allow_html=True)
@@ -497,7 +401,6 @@ if target:
                     bg = "bg-red"
                     if choice == "双色球": bg = "bg-blue" if i == 6 else "bg-red"
                     elif choice == "大乐透": bg = "bg-yellow" if i >= 5 else "bg-blue"
-                    elif choice == "七星彩": bg = "bg-yellow" if i == 6 else "bg-purple"
                     elif choice == "福彩3D": bg = "bg-lightblue"
                     elif choice in ["排列3", "排列5"]: bg = "bg-lotus"
                     balls_html += f"<span class='ball {bg}'>{txt}</span>"
@@ -515,20 +418,16 @@ if target:
             st.line_chart(calc_df.set_index('期号')['和值'])
             st.markdown("### 🎢 号码跨度振幅")
             st.area_chart(calc_df.set_index('期号')['跨度'], color="#f14545")
-            st.markdown("### ⚖️ 奇偶分布走势 (奇数个数)")
-            st.bar_chart(calc_df.set_index('期号')['奇数个数'], color="#3b71f7")
 
-        # === 独立出来的 电视级模拟开奖 标签页 ===
         with t_mock:
             st.markdown("### 🎰 电视级沙盘模拟推演")
-            st.info("💡 采用沉浸式摇号动效，完全模拟真实的开奖过程，为您提供极佳的推演体验。")
+            st.info("💡 采用沉浸式摇号动效，完全模拟真实的开奖过程。")
             if st.button("🚀 生成一次模拟真实开奖", use_container_width=True):
                 pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
                 anim_placeholder = st.empty()
                 sim_r_current = []
                 pool_r_copy = pool_r.copy()
                 
-                # 动画逻辑：红球逐个弹出
                 for i in range(count_r):
                     n = random.choice(pool_r_copy)
                     pool_r_copy.remove(n)
@@ -536,9 +435,8 @@ if target:
                     sim_r_current.sort() 
                     s_html, _ = render_html_balls(sim_r_current, [], choice)
                     anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔴 摇号同步中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
-                    time.sleep(0.6) 
+                    time.sleep(0.4) 
                 
-                # 蓝球逻辑
                 sim_b_current = []
                 if count_b > 0:
                     pool_b_copy = pool_b.copy()
@@ -549,157 +447,75 @@ if target:
                         sim_b_current.sort()
                         s_html, _ = render_html_balls(sim_r_current, sim_b_current, choice)
                         anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>🔵 蓝球锁定中...</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
-                        time.sleep(0.8)
+                        time.sleep(0.6)
                 
                 s_html, s_text = render_html_balls(sim_r_current, sim_b_current, choice)
                 anim_placeholder.markdown(f"<div class='pred-row'><div class='pred-title'>✅ 沙盘模拟完成</div><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
                 st.success("🔔 模拟开奖成功！")
-                st.code(s_text, language="text")
 
         with t3:
+            st.markdown("### 🧬 AI 核心演算 (3组公开 + 2组加密)")
             st.info(f"💡 当前基础模型根据「{view_choice}」数据进行常规演算。")
-            if 'basic_unlocked' not in st.session_state:
-                st.session_state['basic_unlocked'] = False
-                
-            if not st.session_state['basic_unlocked']:
-                with st.form("basic_ai_form"):
-                    b_pwd = st.text_input("🔑 请输入基础版唤醒口令（如不知密码请联系微信）：", type="password")
-                    b_submit = st.form_submit_button("唤醒基础 AI")
-                    if b_submit:
-                        if b_pwd == BASIC_PASSWORD:
-                            st.session_state['basic_unlocked'] = True
-                            st.rerun()
-                        else:
-                            st.error("口令错误！")
             
-            if st.session_state.get('basic_unlocked', False):
-                basic_preds = get_basic_predictions(df.head(view_options[view_choice]), d_cols, choice)
-                for p in basic_preds:
-                    st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']}</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
-                    st.code(p['text'], language="text")
-                    
-                st.markdown("---")
-                st.markdown("##### 🎯 专属号码多维衍算 (支持复式拆解)")
-                custom_input = st.text_input("🔮 输入您的【心水种子号】(用空格隔开)：", placeholder="例如输入：06 18，系统将推算组合")
-                
-                if st.button("🪄 一键衍生拟合", use_container_width=True, type="secondary"):
-                    if custom_input.strip():
-                        with st.spinner('AI 正在融合历史高频数据，为您拆解胆拖复式矩阵...'):
-                            time.sleep(1)
-                            seed_nums = [int(n) for n in re.findall(r'\d+', custom_input)]
-                            pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
-                            valid_seeds = list(dict.fromkeys([n for n in seed_nums if n in pool_r]))
-                            
-                            all_recent_nums = []
-                            for col in d_cols:
-                                all_recent_nums.extend(df.head(50)[col].dropna().astype(int).tolist())
-                            freq_dict = Counter(all_recent_nums)
-                            hot_nums = [item[0] for item in freq_dict.most_common() if item[0] in pool_r]
-                            
-                            dan_pool = valid_seeds if valid_seeds else hot_nums[:5]
-                            dan_ma = sorted(random.sample(dan_pool, 1)) if dan_pool else [random.choice(pool_r)]
-                            
-                            def get_dynamic_combo(count):
-                                res = set(dan_ma)
-                                temp_seeds = [x for x in valid_seeds if x not in res]
-                                random.shuffle(temp_seeds)
-                                for s in temp_seeds:
-                                    if len(res) < count and random.random() > 0.1: res.add(s)
-                                temp_others = [x for x in pool_r if x not in res]
-                                weight_pool = [x for x in temp_others if x in hot_nums[:15]] * 3 + temp_others
-                                while len(res) < count: res.add(random.choice(weight_pool))
-                                return sorted(list(res))
-                                
-                            ma_3 = get_dynamic_combo(3); ma_5 = get_dynamic_combo(5); ma_6 = get_dynamic_combo(6)
-                            
-                            def format_balls(nums):
-                                if choice in ["双色球", "快乐8"]: return "".join([f"<span class='pred-ball bg-red'>{n:02d}</span>" for n in nums])
-                                elif choice == "大乐透": return "".join([f"<span class='pred-ball bg-blue'>{n:02d}</span>" for n in nums])
-                                elif choice == "七星彩": return "".join([f"<span class='pred-ball bg-purple'>{n}</span>" for n in nums])
-                                elif choice == "福彩3D": return "".join([f"<span class='pred-ball bg-lightblue'>{n}</span>" for n in nums])
-                                else: return "".join([f"<span class='pred-ball bg-lotus'>{n}</span>" for n in nums])
-
-                        st.markdown("###### 📊 AI 多维拟合结果")
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🎯 核心胆码 (1码)</div><div class='pred-balls'>{format_balls(dan_ma)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥉 精选组合 (3码)</div><div class='pred-balls'>{format_balls(ma_3)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥈 高频推荐 (5码)</div><div class='pred-balls'>{format_balls(ma_5)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥇 大底复式 (6码)</div><div class='pred-balls'>{format_balls(ma_6)}</div></div>", unsafe_allow_html=True)
-                    else: st.warning("⚠️ 报告老板，请先输入几个您的心水号码！")
-
-        with t4:
-            st.markdown("### 👑 高阶算法矩阵 (VIP 独享权限)")
-            st.info("内置【冷门杀号过滤】、【马尔科夫链状态转移】及【12阶空间位移演算】等企业级付费算法。")
+            # --- 前3组 公开算法 ---
+            basic_preds = get_basic_predictions(df.head(view_options[view_choice]), d_cols, choice)
+            for p in basic_preds:
+                st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']}</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
             
+            st.markdown("---")
+            st.markdown("### 🔒 高阶深度学习模型 (加密)")
+            
+            # --- 后2组 加锁算法 ---
             if 'vip_unlocked' not in st.session_state:
                 st.session_state['vip_unlocked'] = False
-
+                
             if not st.session_state['vip_unlocked']:
-                st.markdown("<div class='vip-locked'>", unsafe_allow_html=True)
-                st.markdown("<div class='pred-row'><div class='pred-balls'><span class='pred-ball bg-red'>??</span><span class='pred-ball bg-red'>??</span><span class='pred-ball bg-blue'>??</span></div></div>", unsafe_allow_html=True)
-                st.markdown("<div class='pred-row gold-border'><div class='pred-balls'><span class='pred-ball bg-gold'>??</span><span class='pred-ball bg-gold'>??</span><span class='pred-ball bg-blue'>??</span></div></div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("<div class='lock-overlay'>🔒 高阶算力已封存，请输入卡密解锁</div>", unsafe_allow_html=True)
-                st.markdown("<br><br>", unsafe_allow_html=True)
-
-                with st.form("vip_ai_form"):
-                    user_input_key = st.text_input("🔑 在下方输入 VIP 高阶【充值卡密】或专属后门解锁：", type="password", placeholder="VIP-XXXXXX-XXXXXX")
-                    submit_vip = st.form_submit_button("🚀 验证防伪并启动", use_container_width=True)
-                    
-                    if submit_vip:
-                        is_valid, msg = verify_card_key(user_input_key)
-                        if is_valid:
+                st.warning("🔒 测算已到达深水区。包含【马尔科夫链模型分析法】与【12阶高阶算法(带AC值)】，须授权解锁。")
+                with st.form("vip_form"):
+                    v_pwd = st.text_input("🔑 请输入【888】解锁后两组核心算法：", type="password")
+                    v_sub = st.form_submit_button("验证口令并解锁")
+                    if v_sub:
+                        if v_pwd == BASIC_PASSWORD:
                             st.session_state['vip_unlocked'] = True
-                            st.success(msg)
-                            time.sleep(1)
                             st.rerun()
                         else:
-                            st.error(msg)
-            
-            if st.session_state.get('vip_unlocked', False):
-                advanced_preds = get_advanced_predictions(df.head(view_options[view_choice]), d_cols, choice)
-                for p in advanced_preds:
-                    st.markdown(f"<div class='pred-row {p.get('css_class', '')}'><div class='pred-title'>{p['name']}</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
-                    st.code(p['text'], language="text")
-                st.success("✅ 企业级高阶算力集群已启动，以上方案均由真实历史数据多维拟合生成。")
+                            st.error("❌ 口令错误！")
+            else:
+                adv_preds = get_advanced_predictions(df.head(view_options[view_choice]), d_cols, choice)
+                for p in adv_preds:
+                    st.markdown(f"<div class='pred-row gold-border'><div class='pred-title'>{p['name']}<br><span style='font-size:12px;color:#888;'>AC复杂度: {p['ac']}</span></div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
 
-        # === 完美恢复 自建数据沙盘 (图3原版功能) ===
+        with t4:
+            st.info("💡 高阶算法已整合至前面的【🤖 核心 AI 演算】标签页中，前3后2，一站式体验。")
+
         with t5:
-            st.markdown("### 🗄️ 自建数据沙盘 (私有化演算)")
-            st.info("💡 导入您自有的数万组历史数据（Excel 或 CSV），使用系统的高阶算法进行深度私有回测。")
-            uploaded_file = st.file_uploader("📂 选择本地数据文件", type=['csv', 'xls', 'xlsx'])
+            st.markdown("### 📤 上传自定义数据")
+            uploaded_file = st.file_uploader("您可以上传自己的历史开奖记录（.xls, .csv），进行推演分析：", type=['csv', 'xls', 'xlsx'])
+            if uploaded_file:
+                st.success(f"✅ 文件 {uploaded_file.name} 已读取！")
             
-            if uploaded_file is not None:
-                try:
-                    user_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-                    st.success(f"✅ 成功导入私有数据，共计 {len(user_df)} 条演算样本！")
-                    st.dataframe(user_df.head(5))
-                    
-                    if st.button("🚀 对导入数据执行高阶拟合计算", use_container_width=True, type="primary"):
-                        st.error(f"🔒 **核心算力保护触发**：自定义海量数据批处理属于企业级私有化部署功能。请联系站长微信 {MY_WECHAT_ID} 获取离线端授权。")
-                except Exception as e:
-                    st.error("❌ 数据格式解析失败。请确保表格包含规范的“期号”和开奖号码列。")
+            st.markdown("### 📂 当前系统数据池文件")
+            for f in all_files:
+                st.code(f)
 
-        # === 完美恢复 交流大厅 随机滚动留言逻辑 ===
         with t6:
-            st.markdown("### 💬 内部 VIP 交流大厅")
-            dynamic_users = get_real_online_users()
-            st.info(f"🟢 当前在线活跃人数：**{dynamic_users:,}** 人。严禁发布广告，违规直接封号。")
+            st.markdown("### 💬 实战玩家交流大厅")
+            users = ["李哥", "王总", "陈老板", "发财哥", "张总", "顺风顺水", "一生平安", "天道酬勤", "A小刘", "老牛", "大忽悠", "追梦人", "稳中求胜"]
+            msgs = ["今天必出08！", "马尔科夫链那个算法确实有点科学依据的。", "这杀号绝了，之前我自己挑的全是死号...", "求今日胆码！", "刚刚的摇号模拟动画看着好有感觉啊！", "AC复杂度怎么看？", "刚充了VIP，坐等今晚收米。", "这软件的深度拟合有点东西的啊...", "有人合买今晚的大底复式吗？"]
             
             if 'comments' not in st.session_state:
-                users = ["老彩民", "追梦人", "李哥", "王大拿", "数据控", "算号大师", "潜水员", "张三", "发财哥", "红单狂人", "小散户", "定海神针"]
-                msgs = [f"已加老板微信 {MY_WECHAT_ID} 拿到口令！", "马尔科夫链那个算法确实有点科学依据的。", "这杀号绝了，之前我自己挑的全是死号...", "求今日胆码！", "刚刚的摇号模拟动画看着好有感觉啊！", "AC复杂度怎么看？", "刚充了VIP，坐等今晚收米。", "这软件的深度拟合有点东西的啊...", "有人合买今晚的大底复式吗？"]
                 st.session_state.comments = [{"user": random.choice(users)+str(random.randint(10,99)), "text": random.choice(msgs), "time": f"{i}分钟前", "vip": random.random()>0.3} for i in range(1, 51)]
+                
             chat_box = st.container(height=450)
             with chat_box:
                 for c in st.session_state.comments:
                     vip_tag = "👑 VIP" if c.get("vip") else "👤 普通"
                     color = "#ff4b4b" if c.get("vip") else "#999"
                     st.markdown(f'''<div class="comment-box"><div class="comment-header"><span class="comment-user">{c["user"]} <span style="font-size:12px;color:{color};font-weight:bold;margin-left:5px;">{vip_tag}</span></span><span class="comment-time">{c["time"]}</span></div><div class="comment-body">{c["text"]}</div></div>''', unsafe_allow_html=True)
-            chat_input = st.text_input("📝 发表您的实战心得...", placeholder="在这里输入文字参与讨论...")
-            if st.button("🚀 发送留言", use_container_width=True, type="primary"):
-                st.error(f"🔒 发送失败：您当前为【游客状态】！请加微信 {MY_WECHAT_ID} 购买内部卡密授权后再发言！")
             
-        st.markdown("<div class='legal-footer'>免责声明：本系统由大数据算法提供参考，彩市有风险，投资需谨慎。<br>© 2026 AI Decision Terminal All Rights Reserved.</div>", unsafe_allow_html=True)
-
+            chat_input = st.text_input("📝 发表您的看法...")
+            if st.button("发送消息") and chat_input:
+                st.session_state.comments.insert(0, {"user": "我", "text": chat_input, "time": "刚刚", "vip": st.session_state.get('vip_unlocked', False)})
+                st.rerun()
 else:
-    st.error(f"没有找到 {choice} 的数据文件，请确保程序所在目录有类似 '{file_kw}.xls' 或 '{file_kw}.csv' 的文件。")
+    st.warning("⚠️ 目录下未找到当前彩种的数据文件。")
