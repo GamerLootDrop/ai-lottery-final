@@ -16,8 +16,7 @@ import base64
 # 💰💰💰 老板专属配置区 (只需修改这里，其他地方不用动) 💰💰💰
 # =========================================================
 MY_WECHAT_ID = "252766667"           # 已帮您填好微信号
-AI_PASSWORD = "888"                  # 基础 AI 演算解锁口令
-VIP_PASSWORD = "999"                 # 高阶矩阵解锁口令
+VIP_PASSWORD = "999"                 # 高级权限解锁口令 (解锁高阶算法和100期数据)
 VIP_BACKDOOR = "666"                 # 老板无敌后门 (输这个啥都能解)
 SECRET_KEY = "Partner_Fortune_2026_TopSecret" # 卡密防伪终极密钥
 # =========================================================
@@ -58,9 +57,6 @@ st.markdown("""
     .pred-balls { flex-grow: 1; display: flex; flex-wrap: wrap; max-width: 400px;} 
     .pred-ball { display: inline-block; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; color: white; font-weight: bold; margin: 3px 4px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: all 0.3s ease; }
     
-    .vip-locked { filter: blur(6px); user-select: none; pointer-events: none; }
-    .lock-overlay { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.95); padding: 6px 15px; border: 2px dashed #ff4b4b; border-radius: 5px; color: #ff4b4b; font-size: 14px; font-weight: bold; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    
     .timer-bar { background: linear-gradient(90deg, #1d2b64, #f8cdda); color: white; padding: 10px; text-align: center; border-radius: 5px; font-weight: bold; margin-bottom: 15px; }
     .wechat-box { background: #f0f2f6; border-radius: 10px; padding: 15px; border: 1px solid #dcdfe6; text-align: center; margin-bottom: 10px;}
     .download-lock { background: #fff5f5; border: 1px dashed #feb2b2; padding: 15px; text-align: center; border-radius: 8px; margin-bottom: 15px; }
@@ -80,7 +76,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 状态初始化 ---
-if 'ai_unlocked' not in st.session_state: st.session_state['ai_unlocked'] = False
 if 'vip_unlocked' not in st.session_state: st.session_state['vip_unlocked'] = False
 if 'ai_click_count' not in st.session_state: st.session_state['ai_click_count'] = 0
 if 'adv_click_count' not in st.session_state: st.session_state['adv_click_count'] = 0
@@ -415,18 +410,18 @@ choice = st.sidebar.selectbox("🎯 选择实战彩种", list(LOTTERY_FILES.keys
 
 st.sidebar.markdown(f"""
     <div class="wechat-box">
-        <span style="font-size:14px; color:#666;">获取【AI口令】及【高阶授权】</span><br>
+        <span style="font-size:14px; color:#666;">获取【100期大样本及高阶授权】</span><br>
         <b style="color:#ff4b4b; font-size:13px; display:inline-block; margin-top:5px;">微信：{MY_WECHAT_ID}</b>
     </div>
 """, unsafe_allow_html=True)
 st.sidebar.code(MY_WECHAT_ID, language="text")
 
 st.sidebar.markdown("---")
-view_options = {"近30期 (默认)": 30, "近50期 (需高阶解锁)": 50, "近100期 (需高阶解锁)": 100}
+view_options = {"近30期 (默认免费)": 30, "近50期 (需高阶解锁)": 50, "近100期 (需高阶解锁)": 100}
 view_choice = st.sidebar.radio("选择分析样本", list(view_options.keys()), index=0)
 
 if "需高阶解锁" in view_choice and not st.session_state.get('vip_unlocked', False):
-    st.sidebar.error("🔒 大样本运算须高阶权限。请在右侧【高阶算法矩阵】标签中验证口令。")
+    st.sidebar.error("🔒 大样本运算须高阶权限。请在右侧【高阶算法矩阵】标签中验证口令解锁。")
     view_limit = 30
 else:
     view_limit = view_options[view_choice]
@@ -460,7 +455,7 @@ if target:
         t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI 演算", "👑 高阶算法矩阵", "🗄️ 自建数据沙盘", "💬 交流大厅"])
         
         with t1:
-            st.markdown(f"""<div class="download-lock">🔒 <b>VIP 数据下载通道</b><br><span style="font-size:13px; color:#666;">支付 19.9 元开启全量 Excel 导出权限。微信：{MY_WECHAT_ID}</span></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="download-lock">🔒 <b>VIP 数据下载通道</b><br><span style="font-size:13px; color:#666;">获取完整Excel导出权限，请添加微信：{MY_WECHAT_ID}</span></div>""", unsafe_allow_html=True)
             table_html = "<table class='hist-table'><tr><th>期号</th><th>开奖号码</th></tr>"
             for _, row in df.head(view_limit).iterrows():
                 max_w = "280px" if choice == "快乐8" else "100%" 
@@ -522,48 +517,37 @@ if target:
 
         with t3:
             st.markdown("### 🧬 AI 核心演算模型 (免费福利)")
-            st.info(f"💡 系统正提取您设置的【近 {view_limit} 期】真实开奖数据进行模型拟合。每次点击均可刷新最优组合！")
+            st.info(f"💡 系统正自动提取您设置的【近 {view_limit} 期】真实开奖数据进行模型拟合。每次点击均可刷新最优组合！")
             
-            # --- 第一层：输入口令 ---
-            if not st.session_state.get('ai_unlocked', False):
-                st.warning("🔒 核心演算已开启保护机制，需免费口令解锁。")
-                c1, c2 = st.columns([2, 1])
-                with c1: pwd = st.text_input("🔑 请输入基础 AI 口令 (找作者免费拿)：", type="password", key="ai_pwd")
-                with c2: 
-                    if st.button("立即验证解锁", use_container_width=True, key="ai_unlock_btn"):
-                        if pwd == AI_PASSWORD or pwd == VIP_BACKDOOR:
-                            st.session_state['ai_unlocked'] = True
-                            st.rerun()
-                        else: st.error("❌ 口令错误")
-            else:
-                # --- 第二层：必须手动点击才干活 ---
-                if st.button("🎯 启动 AI 数据模型演算 (生成 5 组)", type="primary", use_container_width=True):
-                    st.session_state['ai_click_count'] += 1
-                    
-                if st.session_state['ai_click_count'] > 0:
-                    st.success(f"✅ 演算完成！如需更多组合，可再次点击上方按钮生成。当前提取样本：近 {view_limit} 期真实数据。")
-                    ai_sets = get_ai_predictions(df.head(view_limit), d_cols, choice, st.session_state['ai_click_count'])
-                    
-                    for s in ai_sets:
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
-                    
-                    # 复制区域
-                    st.markdown("#### 📋 一键复制专属号单")
-                    copy_str = f"【{choice}】AI核心演算预测\n" + "-"*20 + "\n"
-                    for s in ai_sets:
-                        copy_str += f"{s['name']}: {s['text']}\n"
-                    st.code(copy_str, language="text")
+            # --- 完全免密：直接显示生成按钮 ---
+            if st.button("🎯 立即启动 AI 模型演算 (免费生成 5 组)", type="primary", use_container_width=True):
+                st.session_state['ai_click_count'] += 1
+                
+            if st.session_state['ai_click_count'] > 0:
+                st.success(f"✅ 演算完成！如需更多组合，可再次点击上方按钮刷新。当前提取样本：近 {view_limit} 期真实数据。")
+                ai_sets = get_ai_predictions(df.head(view_limit), d_cols, choice, st.session_state['ai_click_count'])
+                
+                for s in ai_sets:
+                    st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                
+                # 复制区域
+                st.markdown("#### 📋 一键复制专属号单")
+                copy_str = f"【{choice}】AI核心演算预测\n" + "-"*20 + "\n"
+                for s in ai_sets:
+                    copy_str += f"{s['name']}: {s['text']}\n"
+                st.code(copy_str, language="text")
 
         with t4:
             st.markdown("### 👑 顶级高阶矩阵预测")
             st.info("💡 包含多组马尔科夫链分析法与12阶高阶矩阵测算，提供多维度参考组合。每次点击均可刷新大底！")
             
+            # --- 全局授权检查：解锁这里同时解锁100期 ---
             if not st.session_state.get('vip_unlocked', False):
-                st.error("🔒 该区域涉及极大算力开销，需验证高阶卡密或高级口令。")
+                st.error("🔒 该区域涉及极大算力开销及大样本数据(50/100期)分析，需验证高阶卡密或高级口令。")
                 c1, c2 = st.columns([2, 1])
                 with c1: v_pwd = st.text_input("🔑 请输入高阶矩阵授权码：", type="password", key="adv_pwd")
                 with c2:
-                    if st.button("激活高阶算法", use_container_width=True, key="adv_unlock_btn"):
+                    if st.button("激活全局高级权限", use_container_width=True, key="adv_unlock_btn"):
                         # 兼容双重验证：可以是高级防伪卡密，也可以是VIP后门密码
                         is_valid, msg = verify_card_key(v_pwd)
                         if is_valid or v_pwd == VIP_PASSWORD or v_pwd == VIP_BACKDOOR:
@@ -571,6 +555,7 @@ if target:
                             st.rerun()
                         else: st.error(f"❌ {msg}" if msg else "❌ 授权码错误")
             else:
+                st.success("🔓 高级权限已解锁！您现在可以使用高阶算法，并在左侧自由切换 50/100 期大样本数据进行分析。")
                 if st.button("🚀 立即生成高阶矩阵大底 (10组)", type="primary", use_container_width=True):
                     st.session_state['adv_click_count'] += 1
                 
