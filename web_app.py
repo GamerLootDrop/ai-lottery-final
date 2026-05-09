@@ -217,13 +217,22 @@ def render_html_balls(r_res, b_res, choice, is_gold=False, is_gray=False):
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res]) + "".join([f"<span class='pred-ball {b_class}'>{n}</span>" for n in b_res])
         text = f"推荐号码: " + " ".join([str(n) for n in r_res]) + (" | " + f"{b_res[0]}" if b_res else "")
     elif choice == "快乐8":
-                    # 终极拦截：只有这一行的格子数 >= 21（1个期号+至少20个球），才允许去拿数据
-                    if len(tds) >= 21:
-                        nums = [int(tds[i].text.strip()) for i in range(1, 21) if tds[i].text.strip().isdigit()]
-                        # 严格质检：只有真正抓够了20个球的数据，才允许合并进表格
-                        if len(nums) == 20:
-                            new_row = pd.DataFrame([[q_num] + nums], columns=[q_col] + d_cols)
-                            new_df = pd.concat([new_df, new_row], ignore_index=True)
+                    # 【终极暴力提取法】：无视网页乱码，直接抓取整行所有1到80的数字
+                    row_text = " ".join([td.text for td in tds[1:]])
+                    import re  # 确保调用了正则工具
+                    all_nums = [int(n) for n in re.findall(r'\b\d{1,2}\b', row_text)]
+                    
+                    # 过滤掉网页后半截的什么和值、奇偶统计，只要 1~80 之间的纯彩票号码
+                    valid_balls = []
+                    for n in all_nums:
+                        if 1 <= n <= 80 and n not in valid_balls:
+                            valid_balls.append(n)
+                    
+                    # 只要精准抠出了至少20个球，截取前20个，按从小到大排好，直接暴力写入！
+                    if len(valid_balls) >= 20:
+                        final_20_balls = sorted(valid_balls[:20])
+                        new_row = pd.DataFrame([[q_num] + final_20_balls], columns=[q_col] + d_cols)
+                        new_df = pd.concat([new_df, new_row], ignore_index=True)
     elif choice == "福彩3D": 
         r_class = 'bg-gold' if is_gold else ('bg-gray' if is_gray else 'bg-lightblue')
         html = "".join([f"<span class='pred-ball {r_class}'>{n}</span>" for n in r_res])
