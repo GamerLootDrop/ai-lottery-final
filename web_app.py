@@ -179,10 +179,12 @@ def render_html_balls(r_res, b_res, choice, is_gold=False):
 # --- 真实数据统计算法引擎 ---
 def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed=0):
     """提取真实的频次和遗漏数据，结合偏移量生成号码"""
-    random.seed(int(time.time()) + variation_seed) # 结合时间戳和点击次数做微小扰动，但基于真实数据
+    random.seed(int(time.time()) + variation_seed) 
     
     hot_r, cold_r, hot_b, cold_b = [], [], [], []
-    if df_view.empty:
+    
+    # 【核心修复点】：增加 df_view is None 判断，遇到空数据自动跳过
+    if df_view is None or df_view.empty:
         return sorted(random.sample(pool_r, count_r)), sorted(random.sample(pool_r, count_r)), [], []
         
     # 1. 解析红球/主球区真实数据
@@ -191,7 +193,7 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
     
     # 极热：出现频率最高的号码
     most_common = [x[0] for x in r_counter.most_common()]
-    base_hot = most_common[:count_r+3] # 取最热的前几个作为候选池
+    base_hot = most_common[:count_r+3] 
     hot_r = random.sample(base_hot, min(count_r, len(base_hot)))
     while len(hot_r) < count_r:
         cand = random.choice(pool_r)
@@ -200,7 +202,7 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
     # 绝地：从未出现或出现频率极低的号码
     missing = [x for x in pool_r if x not in r_counter]
     least_common = missing + [x[0] for x in r_counter.most_common()[:-count_r-4:-1]]
-    least_common = list(dict.fromkeys(least_common)) # 去重
+    least_common = list(dict.fromkeys(least_common)) 
     cold_r = random.sample(least_common, min(count_r, len(least_common)))
     while len(cold_r) < count_r:
         cand = random.choice(pool_r)
@@ -225,10 +227,6 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
             if cand not in cold_b: cold_b.append(cand)
 
     return sorted(hot_r), sorted(cold_r), sorted(hot_b), sorted(cold_b)
-
-def get_ai_predictions(df_view, d_cols, choice, click_count):
-    sets = []
-    pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
     
     # 获取真实统计分析结果
     hot_r, cold_r, hot_b, cold_b = extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, click_count)
@@ -449,7 +447,7 @@ if target:
                     for s in get_advanced_predictions(df.head(view_limit), d_cols, choice, st.session_state['adv_click_count']):
                         st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
 
-        with t5:
+       with t5:
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
             if not st.session_state.get('vip_unlocked', False):
                 st.error("🔒 【自建数据沙盘】属于高级功能。请在【高阶算法矩阵】标签中验证口令解锁。")
@@ -457,7 +455,32 @@ if target:
                 custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
                 c_text = st.text_area("🎯 2. 粘贴历史开奖号码（每行一期，空格隔开）：", height=150)
                 if st.button("🔬 对自定义数据测算", type="primary"):
-                    st.success("测算成功，算法已将输入值作为参数写入内存矩阵。")
+                    if not c_text.strip():
+                        st.warning("⚠️ 老板，请先在上面文本框里粘贴数据！")
+                    else:
+                        try:
+                            # 真正开始解析您粘贴的文本数据
+                            lines = c_text.strip().split('\n')
+                            parsed_data = []
+                            for i, line in enumerate(lines):
+                                # 提取每一行的数字
+                                nums = [int(n) for n in re.findall(r'\d+', line)]
+                                if nums:
+                                    # 第一列强行塞一个假期号，为了对齐系统的高阶数据结构
+                                    parsed_data.append([len(lines)-i] + nums) 
+                            
+                            if not parsed_data:
+                                st.error("❌ 未能识别到有效的数字，请确保是用空格隔开的数字格式。")
+                            else:
+                                # 生成供算法读取的临时数据矩阵
+                                custom_df = pd.DataFrame(parsed_data)
+                                st.success(f"✅ 成功读取 {len(custom_df)} 期真实自定义数据！正在调用高阶矩阵测算...")
+                                
+                                # 核心：直接将这批自定义数据喂进高级算法引擎！
+                                for s in get_advanced_predictions(custom_df, None, custom_choice, random.randint(1, 9999)):
+                                    st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"🚨 数据解析出错，请检查输入格式。")
 
         with t6:
             st.markdown("### 💬 交流大厅")
