@@ -321,11 +321,11 @@ def get_advanced_predictions(df_view, d_cols, choice, click_count):
         html_m, text_m = render_html_balls(r_res, b_res, choice)
         sets.append({
             "name": f"🔗 马尔科夫 (组{j+1})", 
-            "desc": f"状态转移概率网络 | AC复杂度: {calculate_ac_value(r_res)}", 
+            "desc": f"基于近 {len(r_history)} 期状态转移建模 | AC复杂度: {calculate_ac_value(r_res)}", 
             "html": html_m, 
             "text": text_m, 
             "css_class": ""
-        })
+        }) 
         
     for j in range(3):
         actual_order = 12 if len(r_history) > 15 else 1
@@ -335,7 +335,7 @@ def get_advanced_predictions(df_view, d_cols, choice, click_count):
         html_12, text_12 = render_html_balls(r_res_12, b_res_12, choice, is_gold=True)
         sets.append({
             "name": f"✨ 12阶矩阵 (组{j+1})", 
-            "desc": f"空间偏移基点深度演算 | AC复杂度: {calculate_ac_value(r_res_12)}", 
+            "desc": f"深度空间偏移(跨度{actual_order}期) | 样本数: {len(r_history)}", 
             "html": html_12, 
             "text": text_12, 
             "css_class": "gold-border"
@@ -553,10 +553,31 @@ if target:
                     else:
                         st.warning("⚠️ 老板，请先上传表格或粘贴数据！")
                         
-                    if custom_df is not None:
-                        for s in get_advanced_predictions(custom_df, None, custom_choice, random.randint(1, 9999)):
-                            st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
-                            st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
+                   if custom_df is not None:
+                        # 1. 注入实时时间戳种子，确保预测结果的唯一性和真实性
+                        final_seed = random.randint(1, 9999) + int(time.time())
+                        
+                        # 2. 调用咱们刚刚升级的“真·马尔科夫”预测引擎
+                        results = get_advanced_predictions(custom_df, None, custom_choice, final_seed)
+                        
+                        for s in results:
+                            # 3. 渲染高级感十足的预测卡片
+                            st.markdown(f"""
+                            <div class="prediction-card {s.get('css_class', '')}">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div>
+                                        <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
+                                        <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+                                    {s['html']}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # 4. 保留实用的一键复制文本框
+                            st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
         with t6:
             st.markdown("### 💬 交流大厅")
