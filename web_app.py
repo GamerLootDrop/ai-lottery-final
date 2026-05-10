@@ -10,7 +10,32 @@ from collections import Counter
 from datetime import datetime, timedelta
 import hashlib
 import base64
-
+# --- 1. 核心：连接谷歌表格验证卡密 ---
+def verify_card_from_sheets(user_input_code):
+    try:
+        from datetime import datetime
+        scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
+        client = gspread.authorize(creds)
+        
+        # ⚠️ 这里名字一定要和你谷歌表格左上角的名字一模一样
+        sh = client.open("未命名电子表格").sheet1 
+        data = sh.get_all_records()
+        
+        for i, row in enumerate(data):
+            if str(row['卡密']).strip() == user_input_code.strip():
+                if row['状态'] == '已激活':
+                    return False, "❌ 该卡密已被使用"
+                
+                # 匹配成功，更新表格
+                current_row = i + 2
+                now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                sh.update_cell(current_row, 3, "已激活") # C列
+                sh.update_cell(current_row, 5, now_time)  # E列
+                return True, row['有效期天数']
+        return False, "❌ 无效卡密"
+    except Exception as e:
+        return False, f"⚠️ 系统连接故障: {str(e)}"
 # =========================================================
 # 💰💰💰 老板专属配置区 💰💰💰
 # =========================================================
