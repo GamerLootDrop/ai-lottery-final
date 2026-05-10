@@ -373,23 +373,29 @@ def fetch_from_web(game_code, choice, d_cols_len):
 def sync_latest_data(df, q_col, d_cols, choice, file_path):
     status = st.empty()
     game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls", "排列5": "plw", "七星彩": "qxc", "快乐8": "kl8"}
-    # --- 核心拦截逻辑：挤在这里 ---
-        try:
-            # 1. 尝试获取网页最顶端的第一条期号
-            web_data = fetch_from_web(game_codes.get(choice, "ssq"), choice, len(d_cols))
+    
+    # --- 核心拦截逻辑：已精准对齐 ---
+    web_data = None
+    try:
+        # 1. 尝试获取网页最顶端的第一条期号
+        web_data = fetch_from_web(game_codes.get(choice, "ssq"), choice, len(d_cols))
+        
+        if web_data:
+            latest_web_issue = str(web_data[0]['issue'])
+            latest_local_issue = str(df.iloc[0][q_col])
             
-            if web_data:
-                latest_web_issue = str(web_data[0]['issue'])
-                latest_local_issue = str(df.iloc[0][q_col])
-                
-                # 2. 如果期号一致，直接收工，不跑后面的写文件逻辑
-                if latest_web_issue == latest_local_issue:
-                    status.update(label=f"✅ 当前已是全网最新数据 (期号:{latest_local_issue})", state="complete")
-                    time.sleep(1.5)
-                    return # 关键：这一步会跳出函数，后面那堆合并、保存的重活儿都不干了
-        except Exception as e:
-            # 如果预检出错了，没关系，程序会继续往下跑常规更新
-            pass
+            # 2. 如果期号一致，直接收工，不跑后面的写文件逻辑
+            if latest_web_issue == latest_local_issue:
+                status.success(f"✅ 当前已是全网最新数据 (期号:{latest_local_issue})")
+                time.sleep(1.5)
+                status.empty()
+                return 
+    except Exception as e:
+        # 如果预检出错了，继续往下跑常规更新逻辑
+        pass
+
+    # --- 开始处理抓取到的新数据 ---
+    if web_data:
         try:
             clean_web_rows = []
             for item in web_data:
@@ -398,17 +404,23 @@ def sync_latest_data(df, q_col, d_cols, choice, file_path):
                     if i < len(item['balls']):
                         row_dict[d_cols[i]] = item['balls'][i]
                 clean_web_rows.append(row_dict)
-                
+            
             web_df = pd.DataFrame(clean_web_rows).astype('int64')
+            # 合并、去重、排序、取前2000期
             updated = pd.concat([web_df, df], ignore_index=True).drop_duplicates(subset=[q_col], keep='first').sort_values(q_col, ascending=False).head(2000)
+            
+            # 确定保存路径
             save_path = file_path if file_path.endswith('.csv') else file_path.replace('.xls', '_synced.csv')
             updated.to_csv(save_path, index=False, encoding='utf-8-sig')
+            
             status.success(f"✅ 同步成功！已更新 {len(clean_web_rows)} 期。")
             st.cache_data.clear()
             time.sleep(1)
             st.rerun()
-        except Exception as e: status.error(f"🚨 自动同步失败: 数据格式不匹配")
-    else: status.error("❌ 抓取失败，请检查网络或稍后再试。")
+        except Exception as e: 
+            status.error(f"🚨 自动同步失败: 数据格式不匹配")
+    else: 
+        status.error("❌ 抓取失败，请检查网络或稍后再试。")
 
 # ==========================================
 # 侧边栏
