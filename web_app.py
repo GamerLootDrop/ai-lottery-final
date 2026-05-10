@@ -373,9 +373,23 @@ def fetch_from_web(game_code, choice, d_cols_len):
 def sync_latest_data(df, q_col, d_cols, choice, file_path):
     status = st.empty()
     game_codes = {"双色球": "ssq", "大乐透": "dlt", "福彩3D": "sd", "排列3": "pls", "排列5": "plw", "七星彩": "qxc", "快乐8": "kl8"}
-    status.info(f"📡 正在联网获取最新开奖...")
-    web_data = fetch_from_web(game_codes.get(choice, "ssq"), choice, len(d_cols))
-    if web_data:
+    # --- 核心拦截逻辑：挤在这里 ---
+        try:
+            # 1. 尝试获取网页最顶端的第一条期号
+            web_data = fetch_from_web(game_codes.get(choice, "ssq"), choice, len(d_cols))
+            
+            if web_data:
+                latest_web_issue = str(web_data[0]['issue'])
+                latest_local_issue = str(df.iloc[0][q_col])
+                
+                # 2. 如果期号一致，直接收工，不跑后面的写文件逻辑
+                if latest_web_issue == latest_local_issue:
+                    status.update(label=f"✅ 当前已是全网最新数据 (期号:{latest_local_issue})", state="complete")
+                    time.sleep(1.5)
+                    return # 关键：这一步会跳出函数，后面那堆合并、保存的重活儿都不干了
+        except Exception as e:
+            # 如果预检出错了，没关系，程序会继续往下跑常规更新
+            pass
         try:
             clean_web_rows = []
             for item in web_data:
