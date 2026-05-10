@@ -175,22 +175,19 @@ def render_html_balls(r_res, b_res, choice, is_gold=False):
     text = " ".join([fmt.format(n) for n in r_res]) + ((" | " + " ".join([fmt.format(n) for n in b_res])) if b_res else "")
     return r_html + b_html, f"推荐号码: {text}"
 
-# --- 【已彻底修复】真实数据统计算法引擎 ---
+# --- 真实数据统计算法引擎 ---
 def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed=0):
     """提取真实的频次和遗漏数据，增加防崩溃逻辑"""
     random.seed(int(time.time()) + variation_seed)
     hot_r, cold_r, hot_b, cold_b = [], [], [], []
     
-    # 1. 核心修复点：遇到空数据自动跳过，不崩溃
     if df_view is None or df_view.empty:
         return sorted(random.sample(pool_r, count_r)), sorted(random.sample(pool_r, count_r)), [], []
         
     try:
-        # 2. 解析红球/主球区真实数据
         r_history = df_view.iloc[:, 1:1+count_r].values.flatten().tolist()
         r_counter = Counter(r_history)
         
-        # 极热：确保抽样数量不超过池子大小（修复福彩3D报错）
         most_common = [x[0] for x in r_counter.most_common()]
         base_hot = most_common[:count_r+3]
         hot_r = random.sample(base_hot, min(count_r, len(base_hot)))
@@ -198,7 +195,6 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
             cand = random.choice(pool_r)
             if cand not in hot_r: hot_r.append(cand)
         
-        # 绝地：遗漏数据防溢出处理
         missing = [x for x in pool_r if x not in r_counter]
         least_common = missing + [x[0] for x in r_counter.most_common()[:-count_r-4:-1]]
         least_common = list(dict.fromkeys(least_common)) 
@@ -207,7 +203,6 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
             cand = random.choice(pool_r)
             if cand not in cold_r: cold_r.append(cand)
             
-        # 3. 解析蓝球/特码区真实数据
         if count_b > 0:
             b_history = df_view.iloc[:, 1+count_r:1+count_r+count_b].values.flatten().tolist()
             b_counter = Counter(b_history)
@@ -233,7 +228,6 @@ def get_ai_predictions(df_view, d_cols, choice, click_count):
     sets = []
     pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
     
-    # 获取真实统计分析结果
     hot_r, cold_r, hot_b, cold_b = extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, click_count)
     
     h1, t1 = render_html_balls(hot_r, hot_b, choice)
@@ -242,7 +236,6 @@ def get_ai_predictions(df_view, d_cols, choice, click_count):
     h2, t2 = render_html_balls(cold_r, cold_b, choice)
     sets.append({"name": "🧊 绝地反弹", "desc": f"【均值回归】追踪近期遗漏值最大的冷门死号予以反弹。", "html": h2, "text": t2})
     
-    # 黄金均衡：完美适配小池子抽样
     mix_r = sorted(list(set(hot_r[:max(1, count_r//2)] + cold_r[:max(1, count_r//3)])))
     while len(mix_r) < count_r:
         cand = random.choice(pool_r)
@@ -424,8 +417,9 @@ if target:
                 st.success("🔔 模拟开奖成功！")
                 r_res = sorted(random.sample(pool_r, count_r))
                 b_res = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
-                s_html, _ = render_html_balls(r_res, b_res, choice)
+                s_html, s_text = render_html_balls(r_res, b_res, choice)
                 st.markdown(f"<div class='pred-row'><div class='pred-balls'>{s_html}</div></div>", unsafe_allow_html=True)
+                st.code(s_text.replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t3:
             st.markdown("### 🧬 基础 AI 演算")
@@ -435,6 +429,7 @@ if target:
             if st.session_state['ai_click_count'] > 0:
                 for s in get_ai_predictions(df.head(view_limit), d_cols, choice, st.session_state['ai_click_count']):
                     st.markdown(f"<div class='pred-row'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                    st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t4:
             st.markdown("### 👑 顶级高阶矩阵预测")
@@ -456,6 +451,7 @@ if target:
                 if st.session_state['adv_click_count'] > 0:
                     for s in get_advanced_predictions(df.head(view_limit), d_cols, choice, st.session_state['adv_click_count']):
                         st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                        st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t5:
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
@@ -463,13 +459,25 @@ if target:
                 st.error("🔒 【自建数据沙盘】属于高级功能。请在【高阶算法矩阵】标签中验证口令解锁。")
             else:
                 custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
-                c_text = st.text_area("🎯 2. 粘贴历史开奖号码（每行一期，空格隔开）：", height=150, placeholder="例如：\n1 2 3\n4 5 6")
+                
+                # 新增的大数据上传功能
+                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel，支持几万期极速解析)", type=["csv", "xlsx", "xls"])
+                
+                c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码（每行一期，空格隔开）：", height=150, placeholder="1 2 3\n4 5 6")
+                
                 if st.button("🔬 对自定义数据测算", type="primary"):
-                    if not c_text.strip():
-                        st.warning("⚠️ 老板，请先在上面文本框里粘贴数据！")
-                    else:
+                    custom_df = None
+                    if uploaded_file is not None:
                         try:
-                            # 真正开始解析并测算沙盘数据
+                            if uploaded_file.name.endswith('.csv'):
+                                custom_df = pd.read_csv(uploaded_file)
+                            else:
+                                custom_df = pd.read_excel(uploaded_file)
+                            st.success(f"✅ 成功从表格读取 {len(custom_df)} 期数据！算法已接管矩阵，正在推演...")
+                        except Exception as e:
+                            st.error(f"🚨 解析表格出错: {e}")
+                    elif c_text.strip():
+                        try:
                             lines = [l.strip() for l in c_text.strip().split('\n') if l.strip()]
                             parsed_data = []
                             for i, line in enumerate(lines):
@@ -477,17 +485,20 @@ if target:
                                 if nums:
                                     parsed_data.append([len(lines)-i] + nums) 
                             
-                            if not parsed_data:
-                                st.error("❌ 未能识别数字，请确保数字之间有空格。")
-                            else:
+                            if parsed_data:
                                 custom_df = pd.DataFrame(parsed_data)
                                 st.success(f"✅ 成功提取 {len(custom_df)} 期自定义数据！算法已接管矩阵，正在推演...")
-                                
-                                # 将沙盘数据传给高阶引擎
-                                for s in get_advanced_predictions(custom_df, None, custom_choice, random.randint(1, 9999)):
-                                    st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                            else:
+                                st.error("❌ 未能识别数字，请确保数字之间有空格。")
                         except Exception as e:
-                            st.error(f"🚨 数据测算受阻，请检查输入格式。")
+                            st.error(f"🚨 数据解析受阻，请检查输入格式。")
+                    else:
+                        st.warning("⚠️ 老板，请先上传表格或粘贴数据！")
+                        
+                    if custom_df is not None:
+                        for s in get_advanced_predictions(custom_df, None, custom_choice, random.randint(1, 9999)):
+                            st.markdown(f"<div class='pred-row {s.get('css_class', '')}'><div class='pred-title'>{s['name']}<br><span class='ai-desc'>{s['desc']}</span></div><div class='pred-balls'>{s['html']}</div></div>", unsafe_allow_html=True)
+                            st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t6:
             st.markdown("### 💬 交流大厅")
