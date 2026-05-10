@@ -16,7 +16,7 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
-    # 💰 老板专属后门：输入 666 直接过，不查表格
+    # --- 1. 老板后门优先 ---
     if user_input_code == "666":
         return True, 9999
         
@@ -24,31 +24,48 @@ def verify_card_from_sheets(user_input_code):
         import gspread
         from google.oauth2.service_account import Credentials
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-        # 从 Streamlit Secrets 获取钥匙
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
-        # 强制抓取第一个标签页 (不管它叫工作表1还是Sheet1)
+        # 打开表格并获取所有行（包括表头）
         sh = client.open("Lotto_Cards").get_worksheet(0) 
-        data = sh.get_all_records()
+        # get_all_values() 比 get_all_records() 更稳，不依赖表头文字对齐
+        all_rows = sh.get_all_values() 
         
-        for i, row in enumerate(data):
-            # 自动处理可能存在的空格，匹配“卡密”列
-            if str(row.get('卡密', '')).strip() == user_input_code.strip():
-                if str(row.get('状态', '')).strip() == '已激活':
+        if len(all_rows) < 2:
+            return False, "⚠️ 调试：表格里没有数据，请在第二行填入卡密"
+
+        # 从第二行开始遍历 (第一行是索引0，第二行是索引1)
+        for i, row in enumerate(all_rows[1:]):
+            db_code = str(row[0]).strip()  # 第1列：卡密
+            db_days = row[1]               # 第2列：天数
+            db_status = str(row[2]).strip() # 第3列：状态
+            
+            if db_code == user_input_code.strip():
+                if db_status == '已激活':
                     return False, "❌ 该卡密已被使用"
                 
-                # 匹配成功，更新表格 (第3列是状态，第5列是使用时间)
-                current_row = i + 2
+                # 匹配成功！回写状态到表格
+                current_row_index = i + 2 # 表格行号从1开始，且跳过表头
                 now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                sh.update_cell(current_row, 3, "已激活") 
-                sh.update_cell(current_row, 5, now_time) 
-                return True, row.get('有效天数', 30) # 如果表格没填天数，默认给30天
                 
-        return False, "❌ 授权码错误"
+                try:
+                    sh.update_cell(current_row_index, 3, "已激活") # 在C列写已激活
+                    sh.update_cell(current_row_index, 5, now_time)  # 在E列写时间
+                except:
+                    pass # 即使回写失败，也让用户先用上
+                
+                # 转换天数为数字
+                try:
+                    final_days = int(db_days)
+                except:
+                    final_days = 30 # 如果没填天数，默认给30天
+                
+                return True, final_days
+                
+        return False, "❌ 授权码错误：库里查无此码"
     except Exception as e:
-        # 如果还有问题，网页会直接告诉你到底是哪里没连上
-        return False, f"⚠️ 系统连接故障: {str(e)}"
+        return False, f"⚠️ 连接故障详情: {str(e)}"
 # =========================================================
 # 💰💰💰 老板专属配置区 💰💰💰
 # =========================================================
