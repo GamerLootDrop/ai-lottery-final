@@ -17,12 +17,10 @@ from google.oauth2.service_account import Credentials
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
     # --- 1. 老板后门优先 ---
-    if user_input_code == "666":
+    if user_input_code == "666" or user_input_code == "999":
         return True, 9999
         
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
@@ -33,14 +31,14 @@ def verify_card_from_sheets(user_input_code):
         all_rows = sh.get_all_values() 
         
         if len(all_rows) < 2:
-            return False, "⚠️ 调试：表格里没有数据，请在第二行填入卡密"
+             return False, "⚠️ 调试：表格里没有数据，请在第二行填入卡密"
 
         # 从第二行开始遍历 (第一行是索引0，第二行是索引1)
         for i, row in enumerate(all_rows[1:]):
             db_code = str(row[0]).strip()  # 第1列：卡密
             db_days = row[1]               # 第2列：天数
-            db_status = str(row[2]).strip() # 第3列：状态
-            
+            db_status = str(row[2]).strip() if len(row) > 2 else "" # 第3列：状态
+             
             if db_code == user_input_code.strip():
                 if db_status == '已激活':
                     return False, "❌ 该卡密已被使用"
@@ -66,6 +64,7 @@ def verify_card_from_sheets(user_input_code):
         return False, "❌ 授权码错误：库里查无此码"
     except Exception as e:
         return False, f"⚠️ 连接故障详情: {str(e)}"
+
 # =========================================================
 # 💰💰💰 老板专属配置区 💰💰💰
 # =========================================================
@@ -74,8 +73,6 @@ VIP_PASSWORD = "999"                 # 备用口令
 VIP_BACKDOOR = "666"                 # 老板无敌后门
 SECRET_KEY = "Partner_Fortune_2026_TopSecret" 
 # =========================================================
-
-# 下面是你的原程序逻辑代码...
 
 # --- 0. 隐形访客统计 ---
 visit_file = "visit_log.txt"
@@ -133,25 +130,11 @@ if 'vip_unlocked' not in st.session_state: st.session_state['vip_unlocked'] = Fa
 if 'ai_click_count' not in st.session_state: st.session_state['ai_click_count'] = 0
 if 'adv_click_count' not in st.session_state: st.session_state['adv_click_count'] = 0
 
-def verify_card_key(user_input_key):
-    if not user_input_key: return False, ""
-    if user_input_key in [VIP_BACKDOOR, VIP_PASSWORD]: return True, "老板专属后门已触发！"
-    try:
-        decoded_str = base64.b64decode(user_input_key + "===").decode()
-        parts = decoded_str.split('-')
-        if len(parts) != 3 or parts[0] != 'VIP': return False, "卡密格式错误"
-        card_hash, expire_date_str = parts[1], parts[2]
-        expected_hash = hashlib.md5(f"{expire_date_str}|{SECRET_KEY}".encode()).hexdigest()[:6]
-        if card_hash != expected_hash: return False, "卡密无效"
-        expire_date = datetime.strptime(expire_date_str, '%Y%m%d').date()
-        if datetime.now().date() > expire_date: return False, "卡密已过期"
-        return True, "验证通过"
-    except: return False, "解析失败"
-
 def get_countdown():
     now = datetime.now()
     target = now.replace(hour=21, minute=30, second=0)
-    if now > target: target += timedelta(days=1)
+    if now > target: 
+        target += timedelta(days=1)
     diff = target - now
     hours, remainder = divmod(diff.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
@@ -577,14 +560,19 @@ if target:
             if not st.session_state.get('vip_unlocked', False):
                 st.error("🔒 该区域需解锁高阶权限。")
                 c1, c2 = st.columns([2, 1])
-                with c1: v_pwd = st.text_input("🔑 请输入授权码：", type="password", key="adv_pwd")
+                with c1: 
+                    v_pwd = st.text_input("🔑 请输入授权码：", type="password", key="adv_pwd")
                 with c2:
                     if st.button("激活高级权限", use_container_width=True, key="adv_unlock_btn"):
-                        is_valid, _ = verify_card_key(v_pwd)
+                        # 【核心修复】：直接调用谷歌表格的验证函数
+                        is_valid, msg = verify_card_from_sheets(v_pwd)
                         if is_valid: 
                             st.session_state['vip_unlocked'] = True
+                            st.success("✅ 激活成功！")
+                            time.sleep(1)
                             st.rerun()
-                        else: st.error("❌ 授权码错误")
+                        else: 
+                            st.error(msg if msg else "❌ 授权码错误")
             else:
                 st.success("🔓 高级权限已解锁！正在基于深度矩阵解析历史数据...")
                 if st.button("🚀 生成高阶大底", type="primary", use_container_width=True):
@@ -670,6 +658,7 @@ if target:
                                 
                                 # 一键复制功能
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
+
         with t6:
             st.markdown("### 💬 交流大厅")
             users = ["李哥", "王总", "发财哥", "追梦人"]
