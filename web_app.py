@@ -16,38 +16,39 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
-    # --- 老板专属后门：如果你输入 666，直接通过，不查表格 ---
+    # 💰 老板专属后门：输入 666 直接过，不查表格
     if user_input_code == "666":
-        return True, 9999  # 给 9999 天有效期
+        return True, 9999
         
     try:
+        import gspread
+        from google.oauth2.service_account import Credentials
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-        # 从 Streamlit Secrets 读取配置
+        # 从 Streamlit Secrets 获取钥匙
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
-        # 这里的名字一定要和你谷歌表格左上角的名字一模一样
-        # 建议直接用 get_worksheet(0) 避开中文名问题
+        # 强制抓取第一个标签页 (不管它叫工作表1还是Sheet1)
         sh = client.open("Lotto_Cards").get_worksheet(0) 
         data = sh.get_all_records()
         
         for i, row in enumerate(data):
-            # 这里的 '卡密' 必须和表格第一行第一格文字完全一致
+            # 自动处理可能存在的空格，匹配“卡密”列
             if str(row.get('卡密', '')).strip() == user_input_code.strip():
-                if row.get('状态') == '已激活':
+                if str(row.get('状态', '')).strip() == '已激活':
                     return False, "❌ 该卡密已被使用"
                 
-                # 匹配成功，更新表格
+                # 匹配成功，更新表格 (第3列是状态，第5列是使用时间)
                 current_row = i + 2
                 now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                sh.update_cell(current_row, 3, "已激活") # 假设 C 列是状态
-                sh.update_cell(current_row, 5, now_time)  # 假设 E 列是时间
-                return True, row.get('有效期天数', 30)
-        return False, "❌ 无效卡密"
+                sh.update_cell(current_row, 3, "已激活") 
+                sh.update_cell(current_row, 5, now_time) 
+                return True, row.get('有效天数', 30) # 如果表格没填天数，默认给30天
+                
+        return False, "❌ 授权码错误"
     except Exception as e:
-        # 如果还是报错，这里会显示具体的错误原因
-        return False, f"⚠️ 系统故障: {str(e)}"
-
+        # 如果还有问题，网页会直接告诉你到底是哪里没连上
+        return False, f"⚠️ 系统连接故障: {str(e)}"
 # =========================================================
 # 💰💰💰 老板专属配置区 💰💰💰
 # =========================================================
