@@ -19,7 +19,7 @@ def verify_card_from_sheets(user_input_code):
         client = gspread.authorize(creds)
         
         # ⚠️ 这里名字一定要和你谷歌表格左上角的名字一模一样
-        sh = client.open("未命名电子表格").sheet1 
+        sh = client.open("Lotto_Cards").sheet1 
         data = sh.get_all_records()
         
         for i, row in enumerate(data):
