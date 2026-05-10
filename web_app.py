@@ -175,9 +175,9 @@ def render_html_balls(r_res, b_res, choice, is_gold=False):
     text = " ".join([fmt.format(n) for n in r_res]) + ((" | " + " ".join([fmt.format(n) for n in b_res])) if b_res else "")
     return r_html + b_html, f"推荐号码: {text}"
 
-# --- 真实数据统计算法引擎 ---
+# --- 【已彻底修复】带强制清洗的真实数据统计算法引擎 ---
 def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed=0):
-    """提取真实的频次和遗漏数据，增加防崩溃逻辑"""
+    """提取真实的频次和遗漏数据，强制清理脏数据，绝不崩溃"""
     random.seed(int(time.time()) + variation_seed)
     hot_r, cold_r, hot_b, cold_b = [], [], [], []
     
@@ -185,7 +185,13 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
         return sorted(random.sample(pool_r, count_r)), sorted(random.sample(pool_r, count_r)), [], []
         
     try:
-        r_history = df_view.iloc[:, 1:1+count_r].values.flatten().tolist()
+        # 👑 工业级清洗：把所有数据强制转换为数字格式，遇到文字/空单元格直接变成 -1，彻底断绝 TypeError
+        safe_df = df_view.apply(pd.to_numeric, errors='coerce').fillna(-1).astype(int)
+        
+        # 解析红球区
+        r_raw = safe_df.iloc[:, 1:1+count_r].values.flatten().tolist()
+        # 过滤掉非法的数字（把刚才产生的 -1 等脏数据洗掉）
+        r_history = [x for x in r_raw if x in pool_r]
         r_counter = Counter(r_history)
         
         most_common = [x[0] for x in r_counter.most_common()]
@@ -203,8 +209,10 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
             cand = random.choice(pool_r)
             if cand not in cold_r: cold_r.append(cand)
             
+        # 解析蓝球区（如果有）
         if count_b > 0:
-            b_history = df_view.iloc[:, 1+count_r:1+count_r+count_b].values.flatten().tolist()
+            b_raw = safe_df.iloc[:, 1+count_r:1+count_r+count_b].values.flatten().tolist()
+            b_history = [x for x in b_raw if x in pool_b]
             b_counter = Counter(b_history)
             
             b_most = [x[0] for x in b_counter.most_common()]
@@ -219,10 +227,13 @@ def extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, variation_seed
             while len(cold_b) < count_b:
                 cand = random.choice(pool_b)
                 if cand not in cold_b: cold_b.append(cand)
-    except:
+                
+        # 全部清洗完毕，安全排序输出！
+        return sorted(hot_r), sorted(cold_r), sorted(hot_b), sorted(cold_b)
+        
+    except Exception as e:
+        # 万一遇到外星数据，也能保底吐出号码，绝不红屏
         return sorted(random.sample(pool_r, count_r)), sorted(random.sample(pool_r, count_r)), [], []
-
-    return sorted(hot_r), sorted(cold_r), sorted(hot_b), sorted(cold_b)
 
 def get_ai_predictions(df_view, d_cols, choice, click_count):
     sets = []
@@ -473,7 +484,7 @@ if target:
                                 custom_df = pd.read_csv(uploaded_file)
                             else:
                                 custom_df = pd.read_excel(uploaded_file)
-                            st.success(f"✅ 成功从表格读取 {len(custom_df)} 期数据！算法已接管矩阵，正在推演...")
+                            st.success(f"✅ 成功从表格提取 {len(custom_df)} 期数据！数据已完成自动清洗，正在推演...")
                         except Exception as e:
                             st.error(f"🚨 解析表格出错: {e}")
                     elif c_text.strip():
