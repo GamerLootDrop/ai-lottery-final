@@ -10,40 +10,54 @@ from collections import Counter
 from datetime import datetime, timedelta
 import hashlib
 import base64
+# --- 修复：必须加上这两行导入，否则会报“系统连接故障” ---
+import gspread
+from google.oauth2.service_account import Credentials
+
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
+    # --- 老板专属后门：如果你输入 666，直接通过，不查表格 ---
+    if user_input_code == "666":
+        return True, 9999  # 给 9999 天有效期
+        
     try:
-        from datetime import datetime
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        # 从 Streamlit Secrets 读取配置
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
-        # ⚠️ 这里名字一定要和你谷歌表格左上角的名字一模一样
-        sh = client.open("Lotto_Cards").sheet1 
+        # 这里的名字一定要和你谷歌表格左上角的名字一模一样
+        # 建议直接用 get_worksheet(0) 避开中文名问题
+        sh = client.open("Lotto_Cards").get_worksheet(0) 
         data = sh.get_all_records()
         
         for i, row in enumerate(data):
-            if str(row['卡密']).strip() == user_input_code.strip():
-                if row['状态'] == '已激活':
+            # 这里的 '卡密' 必须和表格第一行第一格文字完全一致
+            if str(row.get('卡密', '')).strip() == user_input_code.strip():
+                if row.get('状态') == '已激活':
                     return False, "❌ 该卡密已被使用"
                 
                 # 匹配成功，更新表格
                 current_row = i + 2
                 now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                sh.update_cell(current_row, 3, "已激活") # C列
-                sh.update_cell(current_row, 5, now_time)  # E列
-                return True, row['有效期天数']
+                sh.update_cell(current_row, 3, "已激活") # 假设 C 列是状态
+                sh.update_cell(current_row, 5, now_time)  # 假设 E 列是时间
+                return True, row.get('有效期天数', 30)
         return False, "❌ 无效卡密"
     except Exception as e:
-        return False, f"⚠️ 系统连接故障: {str(e)}"
+        # 如果还是报错，这里会显示具体的错误原因
+        return False, f"⚠️ 系统故障: {str(e)}"
+
 # =========================================================
 # 💰💰💰 老板专属配置区 💰💰💰
 # =========================================================
 MY_WECHAT_ID = "252766667"           # 微信号
-VIP_PASSWORD = "999"                 # 高级权限解锁口令 (解锁高阶和沙盘)
+VIP_PASSWORD = "999"                 # 备用口令
 VIP_BACKDOOR = "666"                 # 老板无敌后门
 SECRET_KEY = "Partner_Fortune_2026_TopSecret" 
 # =========================================================
+
+# 下面是你的原程序逻辑代码...
 
 # --- 0. 隐形访客统计 ---
 visit_file = "visit_log.txt"
