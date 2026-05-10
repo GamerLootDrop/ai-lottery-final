@@ -265,35 +265,82 @@ def get_ai_predictions(df_view, d_cols, choice, click_count):
     sets.append({"name": "⚖️ 黄金均衡", "desc": "【自然正态分布】热温冷动态配比防偏组合。", "html": h3, "text": t3})
     return sets
 
+def real_markov_core(history_rows, pool, count, rng, order=1):
+    """
+    【硬核数学引擎】真正的马尔可夫状态转移概率计算
+    """
+    transition_matrix = {n: Counter() for n in pool}
+    
+    for i in range(len(history_rows) - order):
+        current_state = history_rows[i]
+        future_state = history_rows[i + order]
+        
+        for cb in current_state:
+            if cb in pool:
+                for fb in future_state:
+                    if fb in pool:
+                        transition_matrix[cb][fb] += 1
+                        
+    if not history_rows:
+        return sorted(rng.sample(pool, count))
+    latest_state = [b for b in history_rows[-1] if b in pool]
+    
+    next_probs = Counter()
+    for lb in latest_state:
+        for nb, freq in transition_matrix[lb].items():
+            next_probs[nb] += freq
+            
+    candidates = [x[0] for x in next_probs.most_common()]
+    top_k_pool = candidates[:count + 5] 
+    
+    if len(top_k_pool) < count:
+        missing = [x for x in pool if x not in top_k_pool]
+        top_k_pool.extend(rng.sample(missing, min(count - len(top_k_pool), len(missing))))
+        
+    return sorted(rng.sample(top_k_pool, count))
+
 def get_advanced_predictions(df_view, d_cols, choice, click_count):
     sets = []
     pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
     
+    rng = random.Random(int(time.time()) + click_count)
+    
+    safe_df = df_view.apply(pd.to_numeric, errors='coerce').fillna(-1).astype(int)
+    r_history = safe_df.iloc[:, 1:1+count_r].values.tolist()
+    r_history.reverse() 
+    
+    b_history = []
+    if count_b > 0:
+        b_history = safe_df.iloc[:, 1+count_r:1+count_r+count_b].values.tolist()
+        b_history.reverse()
+
     for j in range(3):
-        hr, cr, hb, cb = extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, click_count * 10 + j)
-        mix_r = list(set(hr[:max(1, count_r//2)] + random.sample(pool_r, min(count_r, len(pool_r)))))
-        r_res = sorted(mix_r)[:count_r]
+        r_res = real_markov_core(r_history, pool_r, count_r, rng, order=1)
+        b_res = real_markov_core(b_history, pool_b, count_b, rng, order=1) if count_b > 0 else []
         
-        mix_b = []
-        if count_b > 0:
-            mix_b = list(set(hb[:max(1, count_b//2)] + random.sample(pool_b, min(count_b, len(pool_b)))))
-            mix_b = sorted(mix_b)[:count_b]
-            
-        html_m, text_m = render_html_balls(r_res, mix_b, choice)
-        sets.append({"name": f"🔗 马尔科夫 (组{j+1})", "desc": f"状态转移概率网络 | AC复杂度: {calculate_ac_value(r_res)}", "html": html_m, "text": text_m, "css_class": ""})
+        html_m, text_m = render_html_balls(r_res, b_res, choice)
+        sets.append({
+            "name": f"🔗 马尔科夫 (组{j+1})", 
+            "desc": f"状态转移概率网络 | AC复杂度: {calculate_ac_value(r_res)}", 
+            "html": html_m, 
+            "text": text_m, 
+            "css_class": ""
+        })
         
     for j in range(3):
-        hr, cr, hb, cb = extract_real_stats(df_view, pool_r, count_r, pool_b, count_b, click_count * 50 + j * 7)
-        mix_r_12 = list(set(cr[:max(1, count_r//2)] + random.sample(pool_r, min(count_r, len(pool_r)))))
-        r_res_12 = sorted(mix_r_12)[:count_r]
+        actual_order = 12 if len(r_history) > 15 else 1
+        r_res_12 = real_markov_core(r_history, pool_r, count_r, rng, order=actual_order)
+        b_res_12 = real_markov_core(b_history, pool_b, count_b, rng, order=actual_order) if count_b > 0 else []
         
-        mix_b_12 = []
-        if count_b > 0:
-            mix_b_12 = list(set(cb[:max(1, count_b//2)] + random.sample(pool_b, min(count_b, len(pool_b)))))
-            mix_b_12 = sorted(mix_b_12)[:count_b]
-            
-        html_12, text_12 = render_html_balls(r_res_12, mix_b_12, choice, is_gold=True)
-        sets.append({"name": f"✨ 12阶矩阵 (组{j+1})", "desc": f"空间偏移基点深度演算 | AC复杂度: {calculate_ac_value(r_res_12)}", "html": html_12, "text": text_12, "css_class": "gold-border"})
+        html_12, text_12 = render_html_balls(r_res_12, b_res_12, choice, is_gold=True)
+        sets.append({
+            "name": f"✨ 12阶矩阵 (组{j+1})", 
+            "desc": f"空间偏移基点深度演算 | AC复杂度: {calculate_ac_value(r_res_12)}", 
+            "html": html_12, 
+            "text": text_12, 
+            "css_class": "gold-border"
+        })
+        
     return sets
 
 @st.cache_data(ttl=3600)
