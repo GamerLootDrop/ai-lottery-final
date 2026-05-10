@@ -21,7 +21,10 @@ def verify_card_from_sheets(user_input_code):
         return True, 9999
         
     try:
-        scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        scopes = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
