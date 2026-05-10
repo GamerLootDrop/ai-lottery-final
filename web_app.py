@@ -10,57 +10,56 @@ from collections import Counter
 from datetime import datetime, timedelta
 import hashlib
 import base64
-# --- 修复：必须加上这两行导入，否则会报“系统连接故障” ---
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- 1. 核心：连接谷歌表格验证卡密 ---
+# --- 1. 核心：连接谷歌表格验证卡密 (已注入方案A：允许重复登录) ---
 def verify_card_from_sheets(user_input_code):
-    # --- 1. 老板后门优先 ---
-    if user_input_code == "666" or user_input_code == "999":
+    # --- 1. 老板后门优先 (引用下方的老板配置区) ---
+    if user_input_code == VIP_BACKDOOR or user_input_code == VIP_PASSWORD:
         return True, 9999
         
     try:
-        scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
-        # 打开表格并获取所有行（包括表头）
         sh = client.open("Lotto_Cards").get_worksheet(0) 
-        # get_all_values() 比 get_all_records() 更稳，不依赖表头文字对齐
         all_rows = sh.get_all_values() 
         
         if len(all_rows) < 2:
              return False, "⚠️ 调试：表格里没有数据，请在第二行填入卡密"
 
-        # 从第二行开始遍历 (第一行是索引0，第二行是索引1)
+        user_input_code = user_input_code.strip()
         for i, row in enumerate(all_rows[1:]):
             db_code = str(row[0]).strip()  # 第1列：卡密
-            db_days = row[1]               # 第2列：天数
+            db_days = row[1]                # 第2列：天数
             db_status = str(row[2]).strip() if len(row) > 2 else "" # 第3列：状态
              
-            if db_code == user_input_code.strip():
+            if db_code == user_input_code:
+                # 【方案A核心改动】：如果卡密匹配成功，且已经激活过
+                # 我们不再拦截，而是直接放行，这样用户刷新页面后输入原卡密还能进
                 if db_status == '已激活':
-                    return False, "❌ 该卡密已被使用"
+                    try:
+                        final_days = int(db_days)
+                    except:
+                        final_days = 30
+                    return True, final_days
                 
-                # 匹配成功！回写状态到表格
-                current_row_index = i + 2 # 表格行号从1开始，且跳过表头
+                # 如果是第一次激活，执行原有的回写逻辑
+                current_row_index = i + 2 
                 now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 try:
                     sh.update_cell(current_row_index, 3, "已激活") # 在C列写已激活
                     sh.update_cell(current_row_index, 5, now_time)  # 在E列写时间
                 except:
-                    pass # 即使回写失败，也让用户先用上
+                    pass 
                 
-                # 转换天数为数字
                 try:
                     final_days = int(db_days)
                 except:
-                    final_days = 30 # 如果没填天数，默认给30天
+                    final_days = 30
                 
                 return True, final_days
                 
@@ -76,6 +75,36 @@ VIP_PASSWORD = "999"                 # 备用口令
 VIP_BACKDOOR = "666"                 # 老板无敌后门
 SECRET_KEY = "Partner_Fortune_2026_TopSecret" 
 # =========================================================
+
+# --- 2. 身份验证界面逻辑 ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.set_page_config(page_title="系统登录", page_icon="🔒")
+    st.markdown(f"### 💰 极速预测系统 - 身份验证")
+    st.info(f"激活遇到问题？联系客服微信：{MY_WECHAT_ID}")
+    
+    # 【方案A核心改动】：加入 autocomplete 属性，让浏览器记住卡密
+    user_code = st.text_input(
+        "请输入授权卡密：", 
+        type="password", 
+        autocomplete="current-password",
+        help="输入后浏览器若提示‘保存密码’，请点‘保存’，下次刷新即可自动填充。"
+    )
+    
+    if st.button("🚀 激活并进入系统"):
+        success, res = verify_card_from_sheets(user_code)
+        if success:
+            st.session_state.authenticated = True
+            st.success(f"激活成功！权限天数：{res}")
+            time.sleep(0.5)
+            st.rerun()
+        else:
+            st.error(res)
+    st.stop()
+
+# --- 后面接你原本的 AI 抓取和预测算法代码 ---
 
 # --- 0. 隐形访客统计 ---
 visit_file = "visit_log.txt"
