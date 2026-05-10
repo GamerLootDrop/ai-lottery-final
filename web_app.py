@@ -590,13 +590,12 @@ if target:
             if not st.session_state.get('vip_unlocked', False):
                 st.error("🔒 【自建数据沙盘】属于高级功能。请在【高阶算法矩阵】标签中验证口令解锁。")
             else:
-                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
+                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "六合/49", "排列5", "排列3", "福彩3D"])
                 
                 # 数据输入区
                 uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel)", type=["csv", "xlsx", "xls"])
                 c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码（每行一期，空格隔开）：", height=150, placeholder="1 2 3\n4 5 6")
                 
-                # --- 按钮逻辑开始 ---
                 if st.button("🔬 启动马尔科夫矩阵推演", type="primary"):
                     custom_df = None
                     
@@ -619,7 +618,6 @@ if target:
                             for i, line in enumerate(lines):
                                 nums = [int(n) for n in re.findall(r'\d+', line)]
                                 if nums:
-                                    # 给数据加一个模拟期号列，匹配算法格式
                                     parsed_data.append([len(lines)-i] + nums) 
                             
                             if parsed_data:
@@ -630,38 +628,68 @@ if target:
                         except Exception as e:
                             st.error(f"🚨 数据解析受阻，请检查输入格式。")
                     
-                    # C. 兜底提示
                     else:
                         st.warning("⚠️ 老板，请先上传表格或粘贴数据！")
                     
-                    # --- D. 核心预测引擎 (必须缩进在 if st.button 内部) ---
+                    # --- C. 核心预测引擎 ---
                     if custom_df is not None:
                         with st.spinner("马尔科夫状态转移矩阵计算中..."):
-                            # 1. 注入实时随机种子
                             final_seed = random.randint(1, 9999) + int(time.time())
-                            
-                            # 2. 调用真算法引擎
                             results = get_advanced_predictions(custom_df, None, custom_choice, final_seed)
                             
-                            # 3. 结果渲染
+                            # 1. 详细结果卡片渲染
                             for s in results:
                                 st.markdown(f"""
                                 <div class="prediction-card {s.get('css_class', '')}">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                        <div>
-                                            <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
-                                            <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
-                                        </div>
-                                    </div>
-                                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
-                                        {s['html']}
-                                    </div>
+                                    <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
+                                    <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
+                                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">{s['html']}</div>
                                 </div>
                                 """, unsafe_allow_html=True)
-                                
-                                # 一键复制功能
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
+                            # 2. 🏆 深度推演结论：组6/组7 (只在最后显示一次)
+                            st.markdown("---")
+                            st.markdown("### 🏆 深度推演结论：Markov 强关联集 (Group-6/7)")
+                            try:
+                                import re
+                                # 提取第一个分析卡片里的所有数字作为基础
+                                raw_nums = re.findall(r'\d+', results[0]['text'])
+                                # 去重并保持顺序
+                                top_all = []
+                                for n in raw_nums:
+                                    if n not in top_all: top_all.append(n)
+                                
+                                top_7_nums = top_all[:7]
+                                top_6_nums = top_all[:6]
+
+                                if len(top_7_nums) >= 2:
+                                    c1, c2 = st.columns(2)
+                                    with c1:
+                                        st.markdown(f"""
+                                            <div style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); 
+                                                        padding:20px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); min-height:150px;">
+                                                <p style="color:#d63031; font-weight:bold; margin:0;">🔥 核心推演：组 6 组合</p>
+                                                <h2 style="color:#2d3436; margin:15px 0; font-family:monospace; letter-spacing:3px;">
+                                                    {' '.join(top_6_nums)}
+                                                </h2>
+                                                <p style="color:#636e72; font-size:0.85em; margin:0;">适用于高频二中二/组选，矩阵强关联导出</p>
+                                            </div>
+                                        """, unsafe_allow_html=True)
+                                    with c2:
+                                        st.markdown(f"""
+                                            <div style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); 
+                                                        padding:20px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); min-height:150px;">
+                                                <p style="color:#00b894; font-weight:bold; margin:0;">💎 稳健防线：组 7 组合</p>
+                                                <h2 style="color:#2d3436; margin:15px 0; font-family:monospace; letter-spacing:3px;">
+                                                    {' '.join(top_7_nums)}
+                                                </h2>
+                                                <p style="color:#636e72; font-size:0.85em; margin:0;">大数容错模型，全方位概率覆盖</p>
+                                            </div>
+                                        """, unsafe_allow_html=True)
+                            except:
+                                st.info("💡 建议增加历史数据量，以激活更精准的组6/组7分析。")
+                            st.markdown("---")
         with t6:
             st.markdown("### 💬 交流大厅")
             users = ["李哥", "王总", "发财哥", "追梦人"]
