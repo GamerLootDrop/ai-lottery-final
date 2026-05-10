@@ -518,22 +518,26 @@ if target:
             else:
                 custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
                 
-                # 新增的大数据上传功能
-                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel，支持几万期极速解析)", type=["csv", "xlsx", "xls"])
-                
+                # 数据输入区
+                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel)", type=["csv", "xlsx", "xls"])
                 c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码（每行一期，空格隔开）：", height=150, placeholder="1 2 3\n4 5 6")
                 
-                if st.button("🔬 对自定义数据测算", type="primary"):
+                # --- 按钮逻辑开始 ---
+                if st.button("🔬 启动马尔科夫矩阵推演", type="primary"):
                     custom_df = None
+                    
+                    # A. 优先处理上传的文件
                     if uploaded_file is not None:
                         try:
                             if uploaded_file.name.endswith('.csv'):
                                 custom_df = pd.read_csv(uploaded_file)
                             else:
                                 custom_df = pd.read_excel(uploaded_file)
-                            st.success(f"✅ 成功从表格提取 {len(custom_df)} 期数据！数据已完成自动清洗，正在推演...")
+                            st.success(f"✅ 成功从表格提取 {len(custom_df)} 期数据！")
                         except Exception as e:
                             st.error(f"🚨 解析表格出错: {e}")
+                    
+                    # B. 如果没文件，处理粘贴的文本
                     elif c_text.strip():
                         try:
                             lines = [l.strip() for l in c_text.strip().split('\n') if l.strip()]
@@ -541,44 +545,48 @@ if target:
                             for i, line in enumerate(lines):
                                 nums = [int(n) for n in re.findall(r'\d+', line)]
                                 if nums:
+                                    # 给数据加一个模拟期号列，匹配算法格式
                                     parsed_data.append([len(lines)-i] + nums) 
                             
                             if parsed_data:
                                 custom_df = pd.DataFrame(parsed_data)
-                                st.success(f"✅ 成功提取 {len(custom_df)} 期自定义数据！算法已接管矩阵，正在推演...")
+                                st.success(f"✅ 成功提取 {len(custom_df)} 期自定义数据！")
                             else:
                                 st.error("❌ 未能识别数字，请确保数字之间有空格。")
                         except Exception as e:
                             st.error(f"🚨 数据解析受阻，请检查输入格式。")
+                    
+                    # C. 兜底提示
                     else:
                         st.warning("⚠️ 老板，请先上传表格或粘贴数据！")
-                        
-                   if custom_df is not None:
-                        # 1. 注入实时时间戳种子，确保预测结果的唯一性和真实性
-                        final_seed = random.randint(1, 9999) + int(time.time())
-                        
-                        # 2. 调用咱们刚刚升级的“真·马尔科夫”预测引擎
-                        results = get_advanced_predictions(custom_df, None, custom_choice, final_seed)
-                        
-                        for s in results:
-                            # 3. 渲染高级感十足的预测卡片
-                            st.markdown(f"""
-                            <div class="prediction-card {s.get('css_class', '')}">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                    <div>
-                                        <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
-                                        <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
+                    
+                    # --- D. 核心预测引擎 (必须缩进在 if st.button 内部) ---
+                    if custom_df is not None:
+                        with st.spinner("马尔科夫状态转移矩阵计算中..."):
+                            # 1. 注入实时随机种子
+                            final_seed = random.randint(1, 9999) + int(time.time())
+                            
+                            # 2. 调用真算法引擎
+                            results = get_advanced_predictions(custom_df, None, custom_choice, final_seed)
+                            
+                            # 3. 结果渲染
+                            for s in results:
+                                st.markdown(f"""
+                                <div class="prediction-card {s.get('css_class', '')}">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                        <div>
+                                            <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
+                                            <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+                                        {s['html']}
                                     </div>
                                 </div>
-                                <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
-                                    {s['html']}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # 4. 保留实用的一键复制文本框
-                            st.code(s['text'].replace('推荐号码: ', ''), language="text")
-
+                                """, unsafe_allow_html=True)
+                                
+                                # 一键复制功能
+                                st.code(s['text'].replace('推荐号码: ', ''), language="text")
         with t6:
             st.markdown("### 💬 交流大厅")
             users = ["李哥", "王总", "发财哥", "追梦人"]
