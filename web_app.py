@@ -559,112 +559,116 @@ if target:
                     st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t4:
-            # --- 1. 恢复并联动的功能：专属号码多维衍算 ---
+            # --- 1. 专属号码多维衍算 (硬核算法版) ---
             st.markdown("##### 🎯 专属号码多维衍算 (支持复式拆解)")
-            custom_input = st.text_input("🔮 输入您的【心水种子号】(用空格隔开)：", placeholder="例如输入：06 18，系统将推算 1码/3码/5码/6码 组合")
+            custom_input = st.text_input("🔮 输入您的【心水种子号】(用空格隔开)：", placeholder="例如：06 18，系统将结合历史数据进行推演")
             
             if st.button("🪄 一键衍生拟合", use_container_width=True, type="secondary"):
                 if custom_input.strip():
                     with st.spinner('AI 正在融合历史高频数据...'):
                         time.sleep(1)
+                        # 提取用户心水号
                         seed_nums = [int(n) for n in re.findall(r'\d+', custom_input)]
                         
-                        # 确定球池规则
+                        # 确定当前彩种规则与配色
                         rules = {
-                            "双色球": (list(range(1, 34)), 6),
-                            "大乐透": (list(range(1, 36)), 5),
-                            "六合/49": (list(range(1, 50)), 7),
-                            "快乐8": (list(range(1, 81)), 20),
-                            "福彩3D": (list(range(0, 10)), 3),
-                            "排列3": (list(range(0, 10)), 3),
-                            "排列5": (list(range(0, 10)), 5)
+                            "双色球": (list(range(1, 34)), 6, "bg-red"),
+                            "大乐透": (list(range(1, 36)), 5, "bg-blue"),
+                            "六合/49": (list(range(1, 50)), 7, "bg-red"),
+                            "快乐8": (list(range(1, 81)), 20, "bg-red"),
+                            "福彩3D": (list(range(0, 10)), 3, "bg-lightblue"),
+                            "排列3": (list(range(0, 10)), 3, "bg-lotus"),
+                            "排列5": (list(range(0, 10)), 5, "bg-purple")
                         }
-                        pool_r, count_r = rules.get(choice, rules["双色球"])
+                        pool_r, count_r, ball_color = rules.get(choice, rules["双色球"])
                         valid_seeds = list(dict.fromkeys([n for n in seed_nums if n in pool_r]))
                         
-                        # --- 联动修改点：跟随页面顶部的期数选择 ---
+                        # --- 核心计算逻辑：基于选择期数的热号提取 ---
                         current_limit = view_options[view_choice]
                         all_recent_nums = []
                         for col in d_cols:
                             all_recent_nums.extend(df.head(current_limit)[col].dropna().astype(int).tolist())
                         
+                        from collections import Counter
                         freq_dict = Counter(all_recent_nums)
+                        # 找出当前期数范围内的真实热号排名
                         hot_nums = [item[0] for item in freq_dict.most_common() if item[0] in pool_r]
                         
+                        # 定胆逻辑：优先用心水号，没心水号用最热的5个号
                         dan_pool = valid_seeds if valid_seeds else hot_nums[:5]
                         dan_ma = sorted(random.sample(dan_pool, 1)) if dan_pool else [random.choice(pool_r)]
                         
+                        # 衍生组合算法
                         def get_dynamic_combo(count):
                             res = set(dan_ma)
+                            # 优先把剩下的心水号塞进去
                             temp_seeds = [x for x in valid_seeds if x not in res]
                             random.shuffle(temp_seeds)
                             for s in temp_seeds:
-                                if len(res) < count and random.random() > 0.1: res.add(s)
+                                if len(res) < count: res.add(s)
+                            
+                            # 剩下的坑位用【历史热号+全池号】加权填充
                             temp_others = [x for x in pool_r if x not in res]
+                            # 热号权重显著提高（前15名权重*3）
                             weight_pool = [x for x in temp_others if x in hot_nums[:15]] * 3 + temp_others
-                            while len(res) < count: res.add(random.choice(weight_pool))
+                            while len(res) < count:
+                                res.add(random.choice(weight_pool))
                             return sorted(list(res))
                         
-                        ma_3 = get_dynamic_combo(3); ma_5 = get_dynamic_combo(5); ma_6 = get_dynamic_combo(6)
+                        # 执行真实计算
+                        m3, m5, m6 = get_dynamic_combo(3), get_dynamic_combo(5), get_dynamic_combo(6)
                         
-                        def quick_format(nums):
-                            color = "bg-red" if choice != "大乐透" else "bg-blue"
-                            return "".join([f"<span class='pred-ball {color}'>{n:02d}</span>" for n in nums])
-
+                        # --- 结果展示 (完全匹配图片需求) ---
                         st.markdown("###### 📊 AI 多维拟合结果")
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🎯 核心胆码</div><div class='pred-balls'>{quick_format(dan_ma)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥉 精选组合</div><div class='pred-balls'>{quick_format(ma_3)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥈 高频推荐</div><div class='pred-balls'>{quick_format(ma_5)}</div></div>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>🥇 大底复式</div><div class='pred-balls'>{quick_format(ma_6)}</div></div>", unsafe_allow_html=True)
+                        display_list = [("🎯 核心胆码", dan_ma), ("🥉 精选组合", m3), ("🥈 高频推荐", m5), ("🥇 大底复式", m6)]
+                        
+                        for name, nums in display_list:
+                            balls_html = "".join([f"<span class='pred-ball {ball_color}'>{n:02d}</span>" for n in nums])
+                            st.markdown(f"<div class='pred-row'><div class='pred-title'>{name}</div><div class='pred-balls'>{balls_html}</div></div>", unsafe_allow_html=True)
+                            st.code(" ".join([f"{n:02d}" for n in nums]), language="text") # 一键复制
                 else:
                     st.warning("⚠️ 报告老板，请先输入几个您的心水号码！")
 
             st.markdown("---")
 
-            # --- 2. 核心：卡密验证免重输逻辑 ---
-            # 检查 Session 中是否有卡密，如果有，自动执行一次验证
+            # --- 2. VIP 验证与卡密自动记忆逻辑 ---
             if 'last_valid_key' in st.session_state and not st.session_state.get('vip_unlocked'):
-                success, days_left = verify_card_from_sheets(st.session_state.last_valid_key)
-                if success:
+                # 刷新自动静默重验
+                is_ok, days = verify_card_from_sheets(st.session_state.last_valid_key)
+                if is_ok:
                     st.session_state.vip_unlocked = True
-                    st.session_state.days_left = days_left
+                    st.session_state.days_left = days
 
-            # 验证模块展示
             if not st.session_state.get('vip_unlocked'):
-                with st.form("ai_form"):
+                with st.form("vip_gate"):
                     st.markdown("##### 🔑 VIP 核心算法解锁")
-                    user_input_pwd = st.text_input("在下方输入口令或卡密：", type="password")
-                    submit_btn = st.form_submit_button("🚀 验证并启动 AI 演算", use_container_width=True)
-
-                    if submit_btn:
-                        if user_input_pwd:
-                            success, result = verify_card_from_sheets(user_input_pwd)
+                    pwd = st.text_input("输入口令或卡密：", type="password")
+                    if st.form_submit_button("🚀 验证并启动 AI 演算", use_container_width=True):
+                        if pwd:
+                            success, result = verify_card_from_sheets(pwd)
                             if success:
                                 st.session_state.vip_unlocked = True
-                                st.session_state.last_valid_key = user_input_pwd # 记忆卡密
+                                st.session_state.last_valid_key = pwd # 记录在当前对话
                                 st.session_state.days_left = result
-                                st.success(f"✅ 验证成功！剩余有效期: {result} 天")
-                                time.sleep(0.5)
                                 st.rerun()
-                            else:
-                                st.error(f"❌ 验证失败：{result}")
-                        else:
-                            st.warning("请输入卡密")
+                            else: st.error(f"❌ {result}")
             else:
                 st.info(f"🌟 VIP 已激活 (有效期剩余: {st.session_state.get('days_left', '未知')} 天)")
+                
+                # --- 3. VIP 专属预测区域 (算法逻辑同上) ---
+                with st.spinner('AI 深度推演中...'):
+                    # 联动彩种配色
+                    v_color = rules.get(choice, ([],0,"bg-red"))[2]
+                    predictions = get_real_prediction(df.head(view_options[view_choice]), d_cols, choice)
+                    for p in predictions:
+                        styled_html = p['html'].replace('bg-red', v_color).replace('bg-blue', v_color)
+                        st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']} ✅</div><div class='pred-balls'>{styled_html}</div></div>", unsafe_allow_html=True)
+                        st.code(p['text'].replace("推荐号码: ", ""), language="text")
+
                 if st.button("🔴 退出登录/更换卡密"):
                     st.session_state.vip_unlocked = False
                     st.session_state.last_valid_key = None
                     st.rerun()
-
-            # --- 3. 结果显示区域 ---
-            if st.session_state.get('vip_unlocked'):
-                with st.spinner('AI 正在进行动态推演...'):
-                    # 联动：这里的预测也根据用户选的期数走
-                    predictions = get_real_prediction(df.head(view_options[view_choice]), d_cols, choice)
-                    for p in predictions:
-                        st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']} ✅</div><div class='pred-balls'>{p['html']}</div></div>", unsafe_allow_html=True)
-                        st.code(p['text'], language="text")
 
         with t5:
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
