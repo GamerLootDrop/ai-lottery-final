@@ -559,109 +559,94 @@ if target:
                     st.code(s['text'].replace('推荐号码: ', ''), language="text") # 一键复制
 
         with t4:
-            # --- 1. 专属号码多维衍算 (硬核算法版) ---
+            # --- 💡 第一步：先把规则定义放在最前面，保证全场通用 ---
+            all_rules = {
+                "双色球": (list(range(1, 34)), 6, "bg-red"),
+                "大乐透": (list(range(1, 36)), 5, "bg-blue"),
+                "六合/49": (list(range(1, 50)), 7, "bg-red"),
+                "快乐8": (list(range(1, 81)), 20, "bg-red"),
+                "福彩3D": (list(range(0, 10)), 3, "bg-lightblue"),
+                "排列3": (list(range(0, 10)), 3, "bg-lotus"),
+                "排列5": (list(range(0, 10)), 5, "bg-purple")
+            }
+            # 获取当前彩种的配置
+            pool_r, count_r, ball_color = all_rules.get(choice, (list(range(1,34)), 6, "bg-red"))
+
+            # --- 2. 专属号码多维衍算 ---
             st.markdown("##### 🎯 专属号码多维衍算 (支持复式拆解)")
-            custom_input = st.text_input("🔮 输入您的【心水种子号】(用空格隔开)：", placeholder="例如：06 18，系统将结合历史数据进行推演")
+            custom_input = st.text_input("🔮 输入您的【心水种子号】(用空格隔开)：", placeholder="例如：06 18")
             
             if st.button("🪄 一键衍生拟合", use_container_width=True, type="secondary"):
                 if custom_input.strip():
-                    with st.spinner('AI 正在融合历史高频数据...'):
-                        time.sleep(1)
-                        # 提取用户心水号
+                    with st.spinner('AI 正在融合历史数据...'):
                         seed_nums = [int(n) for n in re.findall(r'\d+', custom_input)]
-                        
-                        # 确定当前彩种规则与配色
-                        rules = {
-                            "双色球": (list(range(1, 34)), 6, "bg-red"),
-                            "大乐透": (list(range(1, 36)), 5, "bg-blue"),
-                            "六合/49": (list(range(1, 50)), 7, "bg-red"),
-                            "快乐8": (list(range(1, 81)), 20, "bg-red"),
-                            "福彩3D": (list(range(0, 10)), 3, "bg-lightblue"),
-                            "排列3": (list(range(0, 10)), 3, "bg-lotus"),
-                            "排列5": (list(range(0, 10)), 5, "bg-purple")
-                        }
-                        pool_r, count_r, ball_color = rules.get(choice, rules["双色球"])
                         valid_seeds = list(dict.fromkeys([n for n in seed_nums if n in pool_r]))
                         
-                        # --- 核心计算逻辑：基于选择期数的热号提取 ---
                         current_limit = view_options[view_choice]
                         all_recent_nums = []
                         for col in d_cols:
                             all_recent_nums.extend(df.head(current_limit)[col].dropna().astype(int).tolist())
-                        
-                        from collections import Counter
                         freq_dict = Counter(all_recent_nums)
-                        # 找出当前期数范围内的真实热号排名
                         hot_nums = [item[0] for item in freq_dict.most_common() if item[0] in pool_r]
                         
-                        # 定胆逻辑：优先用心水号，没心水号用最热的5个号
                         dan_pool = valid_seeds if valid_seeds else hot_nums[:5]
                         dan_ma = sorted(random.sample(dan_pool, 1)) if dan_pool else [random.choice(pool_r)]
                         
-                        # 衍生组合算法
                         def get_dynamic_combo(count):
                             res = set(dan_ma)
-                            # 优先把剩下的心水号塞进去
                             temp_seeds = [x for x in valid_seeds if x not in res]
                             random.shuffle(temp_seeds)
                             for s in temp_seeds:
                                 if len(res) < count: res.add(s)
-                            
-                            # 剩下的坑位用【历史热号+全池号】加权填充
                             temp_others = [x for x in pool_r if x not in res]
-                            # 热号权重显著提高（前15名权重*3）
                             weight_pool = [x for x in temp_others if x in hot_nums[:15]] * 3 + temp_others
-                            while len(res) < count:
-                                res.add(random.choice(weight_pool))
+                            while len(res) < count: res.add(random.choice(weight_pool))
                             return sorted(list(res))
                         
-                        # 执行真实计算
                         m3, m5, m6 = get_dynamic_combo(3), get_dynamic_combo(5), get_dynamic_combo(6)
                         
-                        # --- 结果展示 (完全匹配图片需求) ---
                         st.markdown("###### 📊 AI 多维拟合结果")
                         display_list = [("🎯 核心胆码", dan_ma), ("🥉 精选组合", m3), ("🥈 高频推荐", m5), ("🥇 大底复式", m6)]
-                        
                         for name, nums in display_list:
                             balls_html = "".join([f"<span class='pred-ball {ball_color}'>{n:02d}</span>" for n in nums])
                             st.markdown(f"<div class='pred-row'><div class='pred-title'>{name}</div><div class='pred-balls'>{balls_html}</div></div>", unsafe_allow_html=True)
-                            st.code(" ".join([f"{n:02d}" for n in nums]), language="text") # 一键复制
+                            st.code(" ".join([f"{n:02d}" for n in nums]), language="text")
                 else:
                     st.warning("⚠️ 报告老板，请先输入几个您的心水号码！")
 
             st.markdown("---")
 
-            # --- 2. VIP 验证与卡密自动记忆逻辑 ---
+            # --- 3. VIP 验证与记忆逻辑 (保持不变) ---
             if 'last_valid_key' in st.session_state and not st.session_state.get('vip_unlocked'):
-                # 刷新自动静默重验
-                is_ok, days = verify_card_from_sheets(st.session_state.last_valid_key)
-                if is_ok:
-                    st.session_state.vip_unlocked = True
-                    st.session_state.days_left = days
+                try:
+                    is_ok, days = verify_card_from_sheets(st.session_state.last_valid_key)
+                    if is_ok:
+                        st.session_state.vip_unlocked = True
+                        st.session_state.days_left = days
+                except: pass
 
             if not st.session_state.get('vip_unlocked'):
                 with st.form("vip_gate"):
                     st.markdown("##### 🔑 VIP 核心算法解锁")
                     pwd = st.text_input("输入口令或卡密：", type="password")
-                    if st.form_submit_button("🚀 验证并启动 AI 演算", use_container_width=True):
+                    if st.form_submit_button("🚀 验证并启动", use_container_width=True):
                         if pwd:
                             success, result = verify_card_from_sheets(pwd)
                             if success:
                                 st.session_state.vip_unlocked = True
-                                st.session_state.last_valid_key = pwd # 记录在当前对话
+                                st.session_state.last_valid_key = pwd
                                 st.session_state.days_left = result
                                 st.rerun()
                             else: st.error(f"❌ {result}")
             else:
                 st.info(f"🌟 VIP 已激活 (有效期剩余: {st.session_state.get('days_left', '未知')} 天)")
                 
-                # --- 3. VIP 专属预测区域 (算法逻辑同上) ---
+                # --- 4. VIP 专属预测区域 (这里现在可以安全访问 ball_color 了) ---
                 with st.spinner('AI 深度推演中...'):
-                    # 联动彩种配色
-                    v_color = rules.get(choice, ([],0,"bg-red"))[2]
                     predictions = get_real_prediction(df.head(view_options[view_choice]), d_cols, choice)
                     for p in predictions:
-                        styled_html = p['html'].replace('bg-red', v_color).replace('bg-blue', v_color)
+                        # 使用上面统一定义好的 ball_color
+                        styled_html = p['html'].replace('bg-red', ball_color).replace('bg-blue', ball_color)
                         st.markdown(f"<div class='pred-row'><div class='pred-title'>{p['name']} ✅</div><div class='pred-balls'>{styled_html}</div></div>", unsafe_allow_html=True)
                         st.code(p['text'].replace("推荐号码: ", ""), language="text")
 
