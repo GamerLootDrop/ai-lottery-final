@@ -17,7 +17,7 @@ from google.oauth2.service_account import Credentials
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
     # --- 1. 老板后门优先 ---
-    if user_input_code == "666" or user_input_code == "999":
+    if user_input_code == "ygq6662" or user_input_code == "vip6662":
         return True, 9999
         
     try:
