@@ -17,50 +17,54 @@ from google.oauth2.service_account import Credentials
 # --- 1. 核心：连接谷歌表格验证卡密 ---
 def verify_card_from_sheets(user_input_code):
     # --- 1. 老板后门优先 ---
-    if user_input_code == "ygq6662" or user_input_code == "vip6662":
+    if user_input_code in ["ygq6662", "vip6662"]:
         return True, 9999
         
     try:
         scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
         creds = Credentials.from_service_account_info(st.secrets["google"], scopes=scopes)
         client = gspread.authorize(creds)
         
-        # 打开表格并获取所有行（包括表头）
+        # 打开表格并获取所有行
         sh = client.open("Lotto_Cards").get_worksheet(0) 
-        # get_all_values() 比 get_all_records() 更稳，不依赖表头文字对齐
         all_rows = sh.get_all_values() 
         
         if len(all_rows) < 2:
              return False, "⚠️ 调试：表格里没有数据，请在第二行填入卡密"
 
-        # 从第二行开始遍历 (第一行是索引0，第二行是索引1)
+        # 整理输入，防止空格干扰
+        input_code = str(user_input_code).strip()
+
+        # 从第二行开始遍历
         for i, row in enumerate(all_rows[1:]):
             db_code = str(row[0]).strip()  # 第1列：卡密
             db_days = row[1]               # 第2列：天数
             db_status = str(row[2]).strip() if len(row) > 2 else "" # 第3列：状态
              
-            if db_code == user_input_code.strip():
-                if db_status == '已激活':
-                    return False, "❌ 该卡密已被使用"
+            if db_code == input_code:
+                # --- 🔑 关键逻辑修改：允许“未使用”和“已激活”重复登录 ---
+                if db_status not in ["未使用", "已激活", "使用中", ""]:
+                    return False, f"❌ 该卡密状态为[{db_status}]，无法使用"
                 
-                # 匹配成功！回写状态到表格
-                current_row_index = i + 2 # 表格行号从1开始，且跳过表头
-                now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_row_index = i + 2 # 表格真实行号
                 
-                try:
-                    sh.update_cell(current_row_index, 3, "已激活") # 在C列写已激活
-                    sh.update_cell(current_row_index, 5, now_time)  # 在E列写时间
-                except:
-                    pass # 即使回写失败，也让用户先用上
+                # 如果是第一次激活（状态还是“未使用”时），才去更新时间和状态
+                if db_status != "已激活":
+                    now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    try:
+                        sh.update_cell(current_row_index, 3, "已激活") # 标记为已激活
+                        sh.update_cell(current_row_index, 5, now_time)  # 记录首次激活时间
+                    except:
+                        pass # 回写失败不影响用户进入
                 
                 # 转换天数为数字
                 try:
                     final_days = int(db_days)
                 except:
-                    final_days = 30 # 如果没填天数，默认给30天
+                    final_days = 30
                 
                 return True, final_days
                 
