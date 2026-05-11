@@ -686,6 +686,10 @@ if target:
                 if st.button("🔴 退出登录 / 更换卡密"):
                     st.session_state['vip_unlocked'] = False
                     st.session_state['last_valid_key'] = None
+                    
+                    # --- 必须加这一句，清空地址栏的卡密 ---
+                    st.query_params.clear() 
+                    
                     st.rerun()
         with t5:
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
