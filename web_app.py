@@ -647,8 +647,12 @@ if target:
                         is_valid, msg_or_days = verify_card_from_sheets(v_pwd)
                         if is_valid: 
                             st.session_state['vip_unlocked'] = True
-                            st.session_state['last_valid_key'] = v_pwd # 记忆卡密
+                            st.session_state['last_valid_key'] = v_pwd
                             st.session_state['days_left'] = msg_or_days
+                            
+                            # --- 关键修改：把卡密写入 URL 地址栏 ---
+                            st.query_params["auth_key"] = v_pwd 
+                            
                             st.success("✅ 激活成功！")
                             time.sleep(1)
                             st.rerun()
