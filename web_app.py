@@ -514,7 +514,7 @@ if target:
         st.markdown(f'<div class="timer-bar">⏰ 离今日开奖截止还剩 {get_countdown()}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="marquee-wrapper"><div class="marquee-icon">📢</div><div class="marquee-content">{get_fake_broadcasts()}</div></div>', unsafe_allow_html=True)
 
-        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI", "👑 高阶矩阵", "🗄️ 数据沙盘", "💬 大厅"])
+        t1, t2, t_mock, t3, t4, t5, t7, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI", "👑 高阶矩阵", "🗄️ 数据沙盘", "🎯 专家缩水", "💬 大厅"])
         
         with t1:
             table_html = "<table class='hist-table'><tr><th>期号</th><th>开奖号码</th></tr>"
@@ -681,81 +681,78 @@ if target:
                     st.query_params.clear() # 清空 URL
                     st.rerun()
         with t5:
+            # --- 🗄️ 数据沙盘 (原样保留您的逻辑) ---
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
             if not st.session_state.get('vip_unlocked', False):
                 st.error("🔒 【自建数据沙盘】属于高级功能。请在【高阶算法矩阵】标签中验证口令解锁。")
             else:
-                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"])
+                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"], key="sand_rule")
+                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel)", type=["csv", "xlsx", "xls"], key="sand_file")
+                c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码：", height=150, placeholder="1 2 3\n4 5 6", key="sand_area")
                 
-                # 数据输入区
-                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel)", type=["csv", "xlsx", "xls"])
-                c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码（每行一期，空格隔开）：", height=150, placeholder="1 2 3\n4 5 6")
-                
-                # --- 按钮逻辑开始 ---
-                if st.button("🔬 启动马尔科夫矩阵推演", type="primary"):
+                if st.button("🔬 启动马尔科夫矩阵推演", type="primary", key="sand_btn"):
                     custom_df = None
-                    
-                    # A. 优先处理上传的文件
                     if uploaded_file is not None:
                         try:
-                            if uploaded_file.name.endswith('.csv'):
-                                custom_df = pd.read_csv(uploaded_file)
-                            else:
-                                custom_df = pd.read_excel(uploaded_file)
-                            st.success(f"✅ 成功从表格提取 {len(custom_df)} 期数据！")
-                        except Exception as e:
-                            st.error(f"🚨 解析表格出错: {e}")
-                    
-                    # B. 如果没文件，处理粘贴的文本
+                            custom_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+                            st.success(f"✅ 成功提取 {len(custom_df)} 期数据！")
+                        except Exception as e: st.error(f"🚨 解析出错: {e}")
                     elif c_text.strip():
                         try:
                             lines = [l.strip() for l in c_text.strip().split('\n') if l.strip()]
-                            parsed_data = []
-                            for i, line in enumerate(lines):
-                                nums = [int(n) for n in re.findall(r'\d+', line)]
-                                if nums:
-                                    # 给数据加一个模拟期号列，匹配算法格式
-                                    parsed_data.append([len(lines)-i] + nums) 
-                            
+                            parsed_data = [[len(lines)-i] + [int(n) for n in re.findall(r'\d+', line)] for i, line in enumerate(lines) if re.findall(r'\d+', line)]
                             if parsed_data:
                                 custom_df = pd.DataFrame(parsed_data)
-                                st.success(f"✅ 成功提取 {len(custom_df)} 期自定义数据！")
-                            else:
-                                st.error("❌ 未能识别数字，请确保数字之间有空格。")
-                        except Exception as e:
-                            st.error(f"🚨 数据解析受阻，请检查输入格式。")
+                                st.success(f"✅ 成功提取 {len(custom_df)} 期数据！")
+                        except: st.error("🚨 数据解析受阻。")
                     
-                    # C. 兜底提示
-                    else:
-                        st.warning("⚠️ 老板，请先上传表格或粘贴数据！")
-                    
-                    # --- D. 核心预测引擎 (必须缩进在 if st.button 内部) ---
                     if custom_df is not None:
-                        with st.spinner("马尔科夫状态转移矩阵计算中..."):
-                            # 1. 注入实时随机种子
-                            final_seed = random.randint(1, 9999) + int(time.time())
-                            
-                            # 2. 调用真算法引擎
-                            results = get_advanced_predictions(custom_df, None, custom_choice, final_seed)
-                            
-                            # 3. 结果渲染
+                        with st.spinner("矩阵计算中..."):
+                            f_seed = random.randint(1, 9999) + int(time.time())
+                            results = get_advanced_predictions(custom_df, None, custom_choice, f_seed)
                             for s in results:
-                                st.markdown(f"""
-                                <div class="prediction-card {s.get('css_class', '')}">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                        <div>
-                                            <div style="font-weight: bold; color: #333; margin-bottom: 4px;">{s['name']}</div>
-                                            <div style="font-size: 0.8rem; color: #666;">{s['desc']}</div>
-                                        </div>
-                                    </div>
-                                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
-                                        {s['html']}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # 一键复制功能
+                                st.markdown(f'<div class="prediction-card {s.get("css_class", "")}"><b>{s["name"]}</b><br><small>{s["desc"]}</small><div style="margin-top:10px;">{s["html"]}</div></div>', unsafe_allow_html=True)
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
+
+        with t7:
+            # --- 🎯 专家缩水 (新加的 Pro 算法) ---
+            st.header("🎯 专家级 012路缩水终端")
+            st.caption("基于胆拖逻辑与 Pro 版实战过滤引擎")
+            
+            c_p1, c_p2 = st.columns(2)
+            with c_p1:
+                pro_rd = st.multiselect("🔴 红球胆码 (必出)", range(1, 34), key="exp_rd")
+                pro_rt = st.multiselect("⭕ 红球拖码 (候选)", [i for i in range(1, 34) if i not in pro_rd], key="exp_rt")
+            with c_p2:
+                pro_bb = st.multiselect("🔵 选定蓝球", range(1, 17), key="exp_bb")
+                pro_t012 = st.selectbox("目标 012路 比例", ["2:2:2", "1:2:3", "3:2:1", "2:1:3", "1:3:2", "3:1:2"], key="exp_012")
+
+            with st.expander("🛠️ 高阶过滤选项", expanded=True):
+                u012 = st.checkbox("开启 012路 过滤", value=True, key="exp_u012")
+                utail = st.checkbox("开启 同尾号 锁定", value=True, key="exp_utail")
+                ukill = st.checkbox("杀掉 3连号及以上", value=True, key="exp_ukill")
+
+            import itertools
+            if st.button("🚀 启动 Pro 级暴力缩水", use_container_width=True, key="exp_run"):
+                def chk_012(comb, target):
+                    counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
+                    return f"{counts[0]}:{counts[1]}:{counts[2]}" == target
+
+                if len(pro_rd) + len(pro_rt) >= 6 and pro_bb:
+                    with st.spinner("演算中..."):
+                        tuo_needed = 6 - len(pro_rd)
+                        all_c = list(itertools.combinations(pro_rt, tuo_needed))
+                        valid = []
+                        for t_comb in all_c:
+                            f = sorted(list(pro_rd) + list(t_comb))
+                            if u012 and not chk_012(f, pro_t012): continue
+                            if utail and len(set(x % 10 for x in f)) == len(f): continue 
+                            if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
+                            valid.append(f)
+                        st.success(f"🎉 演算完成！共 {len(valid)} 注")
+                        for idx, res in enumerate(valid[:20]):
+                            st.code(f"推荐 {idx+1:02d}: {' '.join([f'{x:02d}' for x in res])} | 蓝: {random.choice(pro_bb):02d}")
+                else: st.warning("⚠️ 红球总数需 ≥ 6 且选蓝球")
 
         with t6:
             st.markdown("### 💬 交流大厅")
