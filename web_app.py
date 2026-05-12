@@ -729,7 +729,7 @@ if target:
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
         with t7:
-            # --- 🎯 专家级全彩种缩水终端 (抗压防崩实战版) ---
+            # --- 🎯 专家级全彩种缩水终端 (012路全通收费版) ---
             st.header("🎯 专家级全彩种缩水终端")
             
             if not st.session_state.get('vip_unlocked', False):
@@ -743,96 +743,95 @@ if target:
                     "排列3": {"r_max": 9, "r_need": 3, "b_max": 0, "b_need": 0}
                 }
                 
-                sel_lot = st.selectbox("🎰 第一步：选择目标彩种", list(lottery_cfg.keys()), key="pro_lot_type")
+                sel_lot = st.selectbox("🎰 第一步：选择目标彩种", list(lottery_cfg.keys()), key="pro_lot_type_v3")
                 cfg = lottery_cfg[sel_lot]
                 st.divider()
                 
                 cp1, cp2 = st.columns(2)
                 with cp1:
                     r_range = range(1, cfg["r_max"] + 1) if cfg["r_max"] > 10 else range(10)
-                    pro_rd = st.multiselect(f"🔴 红球【胆码】 (必出)", r_range, key="exp_rd_gen")
-                    pro_rt = st.multiselect(f"⭕ 红球【拖码】 (候选)", [i for i in r_range if i not in pro_rd], key="exp_rt_gen")
+                    pro_rd = st.multiselect(f"🔴 红球【胆码】 (必出)", r_range, key="exp_rd_gen_v3")
+                    pro_rt = st.multiselect(f"⭕ 红球【拖码】 (候选)", [i for i in r_range if i not in pro_rd], key="exp_rt_gen_v3")
                 
                 with cp2:
                     if cfg["b_max"] > 0:
-                        pro_bd = st.multiselect(f"🔵 蓝球【胆码】", range(1, cfg["b_max"] + 1), key="exp_bd_gen")
-                        pro_bt = st.multiselect(f"🌐 蓝球【拖码】", [i for i in range(1, cfg["b_max"] + 1) if i not in pro_bd], key="exp_bd_gen_2") # 修正key重复
+                        pro_bd = st.multiselect(f"🔵 蓝球【胆码】", range(1, cfg["b_max"] + 1), key="exp_bd_gen_v3")
+                        pro_bt = st.multiselect(f"🌐 蓝球【拖码】", [i for i in range(1, cfg["b_max"] + 1) if i not in pro_bd], key="exp_bt_gen_v3")
                     else:
                         st.info("ℹ️ 该彩种无需蓝球")
                         pro_bd, pro_bt = [0], []
                     
-                    pro_t012 = st.selectbox("⚖️ 目标 012路 比例", ["2:2:2", "2:2:1", "2:1:2", "1:2:2", "3:2:1", "3:1:2", "自适应"], key="exp_012_gen")
+                    # --- 升级：覆盖所有实战分布比例 ---
+                    if cfg["r_need"] == 5: # 大乐透/5球系列
+                        all_012 = ["自适应", "2:2:1", "2:1:2", "1:2:2", "3:1:1", "1:3:1", "1:1:3", "4:1:0", "4:0:1", "0:4:1", "1:4:0", "0:1:4", "1:0:4"]
+                    else: # 双色球/6球系列
+                        all_012 = ["自适应", "2:2:2", "3:2:1", "3:1:2", "1:2:3", "2:1:3", "2:3:1", "1:3:2", "4:1:1", "1:4:1", "1:1:4", "3:3:0", "3:0:3", "0:3:3"]
+                    
+                    pro_t012 = st.selectbox("⚖️ 目标 012路 比例", all_012, key="exp_012_gen_v3")
 
                 with st.expander("🛠️ 专家过滤引擎 (实战开关)", expanded=True):
-                    u012 = st.checkbox("开启 012路 比例过滤", value=True)
-                    ukill = st.checkbox("杀掉 3连号及以上", value=True)
-                    utail = st.checkbox("同尾号检测 (提高容错)", value=True if cfg["r_need"] > 5 else False)
+                    u012 = st.checkbox("开启 012路 比例过滤", value=True, key="u012_v3")
+                    ukill = st.checkbox("杀掉 3连号及以上", value=True, key="ukill_v3")
+                    utail = st.checkbox("同尾号检测 (增加中奖面)", value=False, key="utail_v3") # 默认关掉，防止不出号
 
-                if st.button(f"🚀 启动 {sel_lot} 精准演算", use_container_width=True):
+                if st.button(f"🚀 启动 {sel_lot} 精准演算", use_container_width=True, key="run_v3"):
                     import itertools
                     
                     def chk_012(comb, target):
                         if target == "自适应": return True
                         counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
-                        try:
-                            t_parts = [int(x) for x in target.split(':')]
-                            return all(counts[i] == t_parts[i] for i in range(3))
-                        except: return True
+                        t_parts = [int(x) for x in target.split(':')]
+                        return all(counts[i] == t_parts[i] for i in range(3))
 
                     # 校验逻辑
                     if len(pro_rd) + len(pro_rt) >= cfg["r_need"] and (len(pro_bd) + len(pro_bt) >= cfg["b_need"]):
                         with st.spinner("系统正在进行马尔科夫逻辑交叉推演..."):
-                            # 1. 红球缩水 (流式生成，防止大乐透崩掉)
                             tuo_n = cfg["r_need"] - len(pro_rd)
-                            # 【核心改进】不再转为 list，直接使用迭代器
                             all_red_iterator = itertools.combinations(pro_rt, tuo_n)
                             
                             valid_reds = []
-                            max_check = 100000  # 最大计算阈值，超过则要求用户缩减范围
+                            max_check = 150000  # 提高阈值，暴力运算
                             checked = 0
                             
                             for r_tuo in all_red_iterator:
                                 checked += 1
                                 if checked > max_check:
-                                    st.error("❌ 计算量过大！由于大乐透组合较多，请至少选 1-2 个胆码或减少拖码数量。")
+                                    st.error("❌ 计算量过大！请至少选 1-2 个胆码，或减少拖码数量。")
                                     st.stop()
                                     
                                 f = sorted(list(pro_rd) + list(r_tuo))
                                 if u012 and not chk_012(f, pro_t012): continue
                                 if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
                                 if utail and len(set(x % 10 for x in f)) == len(f): continue
-                                valid_reds.append(f)
                                 
-                                # 找到500注精华就停，提高响应速度
+                                valid_reds.append(f)
                                 if len(valid_reds) >= 500: break
                             
-                            # 2. 蓝球缩水
+                            # 蓝球处理
                             b_tuo_n = cfg["b_need"] - len(pro_bd)
-                            if b_tuo_n >= 0:
+                            if cfg["b_max"] > 0:
                                 valid_blues = [sorted(list(pro_bd) + list(bt)) for bt in itertools.combinations(pro_bt, b_tuo_n)]
                             else:
-                                valid_blues = [pro_bd[:cfg["b_need"]]]
+                                valid_blues = [[]]
 
-                            # 3. 输出展示
-                            st.success(f"🎉 演算完成！共筛选出符合条件的极品单。")
-                            
-                            count = 0
-                            for r_final in valid_reds:
-                                for b_final in valid_blues:
-                                    count += 1
-                                    if count > 50: break
-                                    r_str = ' '.join([f'{x:02d}' for x in r_final])
-                                    if cfg["b_max"] > 0:
-                                        b_str = ' | 蓝: ' + ' '.join([f'{x:02d}' for x in b_final])
+                            # 结果展示
+                            if not valid_reds:
+                                st.warning(f"🧐 演算完成，但在【{pro_t012}】比例下未找到组合。请尝试：1.多选拖码 2.设为‘自适应’")
+                            else:
+                                st.success(f"🎉 演算成功！共锁定 {len(valid_reds) * len(valid_blues)} 注极品单")
+                                count = 0
+                                for r_final in valid_reds:
+                                    for b_final in valid_blues:
+                                        count += 1
+                                        if count > 50: break
+                                        r_str = ' '.join([f'{x:02d}' for x in r_final])
+                                        b_str = ' | 蓝: ' + ' '.join([f'{x:02d}' for x in b_final]) if b_final else ""
                                         st.code(f"精华 {count:02d}: {r_str}{b_str}")
-                                    else:
-                                        st.code(f"精华 {count:02d}: {r_str}")
-                                if count > 50: 
-                                    st.warning("⚠️ 仅展示前 50 注精华。如需更多，请增加条件精准缩水。")
-                                    break
+                                    if count > 50: 
+                                        st.warning("⚠️ 仅展示前 50 注精华。")
+                                        break
                     else:
-                        st.error(f"⚠️ 条件不足：请选够必要的红球和蓝球胆拖数量。")
-
+                        st.error(f"⚠️ 条件不足：请选够红球和蓝球的总数。")
         with t6:
             st.markdown("### 💬 交流大厅")
             users = ["李哥", "王总", "发财哥", "追梦人"]
