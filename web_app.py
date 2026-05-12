@@ -681,7 +681,7 @@ if target:
                     st.query_params.clear() # 清空 URL
                     st.rerun()
         with t5:
-            # --- 🗄️ 数据沙盘 (带卡密锁) ---
+            # --- 🗄️ 数据沙盘 (带卡密锁 & 期数识别反馈) ---
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
             if not st.session_state.get('vip_unlocked', False):
                 st.error("🔒 【自建数据沙盘】属于高级功能。请在【👑 高阶矩阵】标签中验证口令解锁。")
@@ -692,19 +692,36 @@ if target:
                 
                 if st.button("🔬 启动马尔科夫矩阵推演", type="primary", key="btn_v3"):
                     custom_df = None
+                    # A. 处理上传文件
                     if uploaded_file is not None:
                         try:
                             custom_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-                        except Exception as e: st.error(f"🚨 解析出错: {e}")
+                            # 补回识别成功的提示
+                            st.success(f"✅ 成功从表格提取 {len(custom_df)} 期数据！")
+                        except Exception as e: 
+                            st.error(f"🚨 解析出错: {e}")
+                    
+                    # B. 如果没文件，处理粘贴文本
                     elif c_text.strip():
                         try:
                             lines = [l.strip() for l in c_text.strip().split('\n') if l.strip()]
                             parsed_data = [[len(lines)-i] + [int(n) for n in re.findall(r'\d+', line)] for i, line in enumerate(lines) if re.findall(r'\d+', line)]
-                            if parsed_data: custom_df = pd.DataFrame(parsed_data)
-                        except: st.error("🚨 数据解析受阻。")
+                            if parsed_data: 
+                                custom_df = pd.DataFrame(parsed_data)
+                                # 补回识别成功的提示
+                                st.success(f"✅ 成功提取 {len(custom_df)} 期自定义数据！")
+                            else: 
+                                st.error("❌ 未识别到有效数字。")
+                        except: 
+                            st.error("🚨 数据解析受阻。")
                     
+                    # C. 兜底提示
+                    else:
+                        st.warning("⚠️ 请先上传表格或粘贴数据！")
+                    
+                    # D. 核心推演引擎
                     if custom_df is not None:
-                        with st.spinner("计算中..."):
+                        with st.spinner("马尔科夫状态转移矩阵计算中..."):
                             f_seed = random.randint(1, 9999) + int(time.time())
                             results = get_advanced_predictions(custom_df, None, custom_choice, f_seed)
                             for s in results:
