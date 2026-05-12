@@ -729,7 +729,7 @@ if target:
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
         with t7:
-            # --- 🎯 专家级全彩种缩水终端 (商业实战版) ---
+            # --- 🎯 专家级全彩种缩水终端 (抗压防崩实战版) ---
             st.header("🎯 专家级全彩种缩水终端")
             
             if not st.session_state.get('vip_unlocked', False):
@@ -755,14 +755,12 @@ if target:
                 
                 with cp2:
                     if cfg["b_max"] > 0:
-                        # --- 升级：区分蓝球胆拖 ---
                         pro_bd = st.multiselect(f"🔵 蓝球【胆码】", range(1, cfg["b_max"] + 1), key="exp_bd_gen")
-                        pro_bt = st.multiselect(f"🌐 蓝球【拖码】", [i for i in range(1, cfg["b_max"] + 1) if i not in pro_bd], key="exp_bt_gen")
+                        pro_bt = st.multiselect(f"🌐 蓝球【拖码】", [i for i in range(1, cfg["b_max"] + 1) if i not in pro_bd], key="exp_bd_gen_2") # 修正key重复
                     else:
                         st.info("ℹ️ 该彩种无需蓝球")
                         pro_bd, pro_bt = [0], []
                     
-                    # --- 升级：增加更多实战比例 ---
                     pro_t012 = st.selectbox("⚖️ 目标 012路 比例", ["2:2:2", "2:2:1", "2:1:2", "1:2:2", "3:2:1", "3:1:2", "自适应"], key="exp_012_gen")
 
                 with st.expander("🛠️ 专家过滤引擎 (实战开关)", expanded=True):
@@ -776,41 +774,53 @@ if target:
                     def chk_012(comb, target):
                         if target == "自适应": return True
                         counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
-                        # 兼容处理：支持 2:2:1 这种5球或6球的比例判断
-                        t_parts = [int(x) for x in target.split(':')]
-                        return all(counts[i] == t_parts[i] for i in range(3))
+                        try:
+                            t_parts = [int(x) for x in target.split(':')]
+                            return all(counts[i] == t_parts[i] for i in range(3))
+                        except: return True
 
-                    # 校验：红球胆+拖必须够数；蓝球胆+拖必须够数
+                    # 校验逻辑
                     if len(pro_rd) + len(pro_rt) >= cfg["r_need"] and (len(pro_bd) + len(pro_bt) >= cfg["b_need"]):
                         with st.spinner("系统正在进行马尔科夫逻辑交叉推演..."):
-                            # 1. 红球缩水
+                            # 1. 红球缩水 (流式生成，防止大乐透崩掉)
                             tuo_n = cfg["r_need"] - len(pro_rd)
-                            all_red_c = list(itertools.combinations(pro_rt, tuo_n))
+                            # 【核心改进】不再转为 list，直接使用迭代器
+                            all_red_iterator = itertools.combinations(pro_rt, tuo_n)
                             
                             valid_reds = []
-                            for r_tuo in all_red_c:
+                            max_check = 100000  # 最大计算阈值，超过则要求用户缩减范围
+                            checked = 0
+                            
+                            for r_tuo in all_red_iterator:
+                                checked += 1
+                                if checked > max_check:
+                                    st.error("❌ 计算量过大！由于大乐透组合较多，请至少选 1-2 个胆码或减少拖码数量。")
+                                    st.stop()
+                                    
                                 f = sorted(list(pro_rd) + list(r_tuo))
                                 if u012 and not chk_012(f, pro_t012): continue
                                 if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
                                 if utail and len(set(x % 10 for x in f)) == len(f): continue
                                 valid_reds.append(f)
+                                
+                                # 找到500注精华就停，提高响应速度
+                                if len(valid_reds) >= 500: break
                             
-                            # 2. 蓝球缩水逻辑 (真实胆拖组合)
+                            # 2. 蓝球缩水
                             b_tuo_n = cfg["b_need"] - len(pro_bd)
                             if b_tuo_n >= 0:
-                                all_blue_c = list(itertools.combinations(pro_bt, b_tuo_n))
-                                valid_blues = [sorted(list(pro_bd) + list(bt)) for bt in all_blue_c]
+                                valid_blues = [sorted(list(pro_bd) + list(bt)) for bt in itertools.combinations(pro_bt, b_tuo_n)]
                             else:
                                 valid_blues = [pro_bd[:cfg["b_need"]]]
 
                             # 3. 输出展示
-                            st.success(f"🎉 演算完成！共锁定 {len(valid_reds) * len(valid_blues)} 注‘极品单’")
+                            st.success(f"🎉 演算完成！共筛选出符合条件的极品单。")
                             
                             count = 0
                             for r_final in valid_reds:
                                 for b_final in valid_blues:
                                     count += 1
-                                    if count > 50: break # 限制展示50注，防止页面崩溃
+                                    if count > 50: break
                                     r_str = ' '.join([f'{x:02d}' for x in r_final])
                                     if cfg["b_max"] > 0:
                                         b_str = ' | 蓝: ' + ' '.join([f'{x:02d}' for x in b_final])
@@ -818,7 +828,7 @@ if target:
                                     else:
                                         st.code(f"精华 {count:02d}: {r_str}")
                                 if count > 50: 
-                                    st.warning("⚠️ 结果过多，仅展示前 50 注精华。")
+                                    st.warning("⚠️ 仅展示前 50 注精华。如需更多，请增加条件精准缩水。")
                                     break
                     else:
                         st.error(f"⚠️ 条件不足：请选够必要的红球和蓝球胆拖数量。")
