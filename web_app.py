@@ -378,7 +378,7 @@ def has_too_many_consecutive(comb):
 # ==========================================
 # 界面构建与侧边栏
 # ==========================================
-data_dir = "data"
+data_dir = "."
 os.makedirs(data_dir, exist_ok=True)
 files = [f for f in os.listdir(data_dir) if f.endswith('.csv') or f.endswith('.xls') or f.endswith('.xlsx')]
 
