@@ -514,7 +514,7 @@ if target:
         st.markdown(f'<div class="timer-bar">⏰ 离今日开奖截止还剩 {get_countdown()}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="marquee-wrapper"><div class="marquee-icon">📢</div><div class="marquee-content">{get_fake_broadcasts()}</div></div>', unsafe_allow_html=True)
 
-        t1, t2, t3, t4, t5, t7, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI", "👑 高阶矩阵", "🎯 专家缩水", "💬 大厅"])
+        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI", "👑 高阶矩阵", "🗄️ 数据沙盘", "💬 大厅"])
         
         with t1:
             table_html = "<table class='hist-table'><tr><th>期号</th><th>开奖号码</th></tr>"
@@ -757,50 +757,6 @@ if target:
                                 # 一键复制功能
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
-        with t7:
-            st.header("🎯 专家级 012路缩水终端")
-            st.caption("基于胆拖逻辑与 Pro 版实战过滤引擎")
-            
-            c_p1, c_p2 = st.columns(2)
-            with c_p1:
-                pro_rd = st.multiselect("🔴 红球胆码 (必出)", range(1, 34), key="final_tab_rd")
-                pro_rt = st.multiselect("⭕ 红球拖码 (候选)", [i for i in range(1, 34) if i not in pro_rd], key="final_tab_rt")
-            with c_p2:
-                pro_bb = st.multiselect("🔵 选定蓝球", range(1, 17), key="final_tab_bb")
-                pro_t012 = st.selectbox("目标 012路 比例", ["2:2:2", "1:2:3", "3:2:1", "2:1:3", "1:3:2", "3:1:2"], key="final_tab_012")
-
-            with st.expander("🛠️ 高阶过滤选项", expanded=True):
-                u012 = st.checkbox("开启 012路 过滤", value=True, key="final_u012")
-                utail = st.checkbox("开启 同尾号 锁定", value=True, key="final_utail")
-                ukill = st.checkbox("杀掉 3连号及以上", value=True, key="final_ukill")
-
-            import itertools
-            if st.button("🚀 启动 Pro 级暴力缩水演算", use_container_width=True):
-                def chk_012(comb, target):
-                    counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
-                    return f"{counts[0]}:{counts[1]}:{counts[2]}" == target
-
-                if len(pro_rd) + len(pro_rt) >= 6 and pro_bb:
-                    with st.spinner("专家算法演算中..."):
-                        tuo_needed = 6 - len(pro_rd)
-                        all_c = list(itertools.combinations(pro_rt, tuo_needed))
-                        valid = []
-                        for t_comb in all_c:
-                            f = sorted(list(pro_rd) + list(t_comb))
-                            if u012 and not chk_012(f, pro_t012): continue
-                            if utail and len(set(x % 10 for x in f)) == len(f): continue 
-                            if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
-                            valid.append(f)
-                        
-                        st.success(f"🎉 演算完成！精华组合共 {len(valid)} 注")
-                        if valid:
-                            for idx, res in enumerate(valid[:20]):
-                                st.code(f"推荐 {idx+1:02d}: {' '.join([f'{x:02d}' for x in res])} | 蓝: {random.choice(pro_bb):02d}")
-                        else:
-                            st.error("未找到符合条件的号码，请放宽过滤条件。")
-                else:
-                    st.warning("⚠️ 请确保红球（胆+拖）总数 ≥ 6 且至少选择 1 个蓝球")
-
         with t6:
             st.markdown("### 💬 交流大厅")
             users = ["李哥", "王总", "发财哥", "追梦人"]
@@ -813,17 +769,20 @@ if target:
                 for c in st.session_state.comments:
                     st.markdown(f'''<div class="comment-box"><div class="comment-header"><span class="comment-user">{c["user"]}</span><span class="comment-time">{c["time"]}</span></div><div class="comment-body">{c["text"]}</div></div>''', unsafe_allow_html=True)
             
-            chat_input = st.text_input("📝 发表...", key="final_chat_input")
-            if st.button("发送", key="final_chat_send") and chat_input:
+            chat_input = st.text_input("📝 发表...")
+            if st.button("发送") and chat_input:
                 st.session_state.comments.insert(0, {"user": "我", "text": chat_input, "time": "刚刚"})
                 st.rerun()
-
+                
         # --- 免责声明区域 ---
         st.markdown(f"""
         <div class="disclaimer">
             <b>免责声明</b><br>
-            本系统通过历史数据分析及数学统计模型生成预测结果，所有呈现的形态走势、冷热频次及AI演算矩阵等均仅作为数据分析的参考维度。<br>
+            本系统通过历史数据分析及数学统计模型生成预测结果，所有呈现的形态走势、冷热频次及AI演算矩阵等均仅作为数据分析的参考维​度。<br>
             系统不构成任何明确的投资指导或投注建议。彩市具有高度随机性与不可预测性，购彩存在风险，请务必保持理性，量力而行，风险自担。<br>
             禁止任何人将本软件用于非法用途，一切因使用本系统产生的纠纷均与开发者无关。
         </div>
         """, unsafe_allow_html=True)
+        
+else:
+    st.warning("⚠️ 未找到数据文件。")
