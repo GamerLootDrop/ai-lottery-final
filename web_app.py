@@ -681,78 +681,78 @@ if target:
                     st.query_params.clear() # 清空 URL
                     st.rerun()
         with t5:
-            # --- 🗄️ 数据沙盘 (原样保留您的逻辑) ---
+            # --- 🗄️ 数据沙盘 (带卡密锁) ---
             st.markdown("### 📤 自建数据沙盘 (支持全彩种)")
             if not st.session_state.get('vip_unlocked', False):
-                st.error("🔒 【自建数据沙盘】属于高级功能。请在【高阶算法矩阵】标签中验证口令解锁。")
+                st.error("🔒 【自建数据沙盘】属于高级功能。请在【👑 高阶矩阵】标签中验证口令解锁。")
             else:
-                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"], key="sand_rule")
-                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格 (支持 CSV/Excel)", type=["csv", "xlsx", "xls"], key="sand_file")
-                c_text = st.text_area("✍️ 或者在此处手动粘贴历史开奖号码：", height=150, placeholder="1 2 3\n4 5 6", key="sand_area")
+                custom_choice = st.selectbox("🎯 1. 选择规则", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"], key="sand_v3")
+                uploaded_file = st.file_uploader("📁 2. 上传历史数据表格", type=["csv", "xlsx", "xls"], key="file_v3")
+                c_text = st.text_area("✍️ 手动粘贴开奖号码：", height=150, placeholder="1 2 3\n4 5 6", key="text_v3")
                 
-                if st.button("🔬 启动马尔科夫矩阵推演", type="primary", key="sand_btn"):
+                if st.button("🔬 启动马尔科夫矩阵推演", type="primary", key="btn_v3"):
                     custom_df = None
                     if uploaded_file is not None:
                         try:
                             custom_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-                            st.success(f"✅ 成功提取 {len(custom_df)} 期数据！")
                         except Exception as e: st.error(f"🚨 解析出错: {e}")
                     elif c_text.strip():
                         try:
                             lines = [l.strip() for l in c_text.strip().split('\n') if l.strip()]
                             parsed_data = [[len(lines)-i] + [int(n) for n in re.findall(r'\d+', line)] for i, line in enumerate(lines) if re.findall(r'\d+', line)]
-                            if parsed_data:
-                                custom_df = pd.DataFrame(parsed_data)
-                                st.success(f"✅ 成功提取 {len(custom_df)} 期数据！")
+                            if parsed_data: custom_df = pd.DataFrame(parsed_data)
                         except: st.error("🚨 数据解析受阻。")
                     
                     if custom_df is not None:
-                        with st.spinner("矩阵计算中..."):
+                        with st.spinner("计算中..."):
                             f_seed = random.randint(1, 9999) + int(time.time())
                             results = get_advanced_predictions(custom_df, None, custom_choice, f_seed)
                             for s in results:
-                                st.markdown(f'<div class="prediction-card {s.get("css_class", "")}"><b>{s["name"]}</b><br><small>{s["desc"]}</small><div style="margin-top:10px;">{s["html"]}</div></div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="prediction-card {s.get("css_class", "")}"><b>{s["name"]}</b><br>{s["html"]}</div>', unsafe_allow_html=True)
                                 st.code(s['text'].replace('推荐号码: ', ''), language="text")
 
         with t7:
-            # --- 🎯 专家缩水 (新加的 Pro 算法) ---
+            # --- 🎯 专家缩水 (也加上卡密锁) ---
             st.header("🎯 专家级 012路缩水终端")
-            st.caption("基于胆拖逻辑与 Pro 版实战过滤引擎")
             
-            c_p1, c_p2 = st.columns(2)
-            with c_p1:
-                pro_rd = st.multiselect("🔴 红球胆码 (必出)", range(1, 34), key="exp_rd")
-                pro_rt = st.multiselect("⭕ 红球拖码 (候选)", [i for i in range(1, 34) if i not in pro_rd], key="exp_rt")
-            with c_p2:
-                pro_bb = st.multiselect("🔵 选定蓝球", range(1, 17), key="exp_bb")
-                pro_t012 = st.selectbox("目标 012路 比例", ["2:2:2", "1:2:3", "3:2:1", "2:1:3", "1:3:2", "3:1:2"], key="exp_012")
+            if not st.session_state.get('vip_unlocked', False):
+                st.error("🔒 【专家级缩水】属于核心VIP功能。请在【👑 高阶矩阵】标签中验证口令解锁。")
+            else:
+                st.caption("基于胆拖逻辑与 Pro 版实战过滤引擎")
+                cp1, cp2 = st.columns(2)
+                with cp1:
+                    pro_rd = st.multiselect("🔴 红球胆码 (必出)", range(1, 34), key="exp_rd_lock")
+                    pro_rt = st.multiselect("⭕ 红球拖码 (候选)", [i for i in range(1, 34) if i not in pro_rd], key="exp_rt_lock")
+                with cp2:
+                    pro_bb = st.multiselect("🔵 选定蓝球", range(1, 17), key="exp_bb_lock")
+                    pro_t012 = st.selectbox("目标 012路 比例", ["2:2:2", "1:2:3", "3:2:1", "2:1:3", "1:3:2", "3:1:2"], key="exp_012_lock")
 
-            with st.expander("🛠️ 高阶过滤选项", expanded=True):
-                u012 = st.checkbox("开启 012路 过滤", value=True, key="exp_u012")
-                utail = st.checkbox("开启 同尾号 锁定", value=True, key="exp_utail")
-                ukill = st.checkbox("杀掉 3连号及以上", value=True, key="exp_ukill")
+                with st.expander("🛠️ 高阶过滤选项", expanded=True):
+                    u012 = st.checkbox("开启 012路 过滤", value=True, key="exp_u012_lock")
+                    utail = st.checkbox("开启 同尾号 锁定", value=True, key="exp_utail_lock")
+                    ukill = st.checkbox("杀掉 3连号及以上", value=True, key="exp_ukill_lock")
 
-            import itertools
-            if st.button("🚀 启动 Pro 级暴力缩水", use_container_width=True, key="exp_run"):
-                def chk_012(comb, target):
-                    counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
-                    return f"{counts[0]}:{counts[1]}:{counts[2]}" == target
+                import itertools
+                if st.button("🚀 启动 Pro 级暴力缩水", use_container_width=True, key="exp_run_lock"):
+                    def chk_012(comb, target):
+                        counts = [sum(1 for x in comb if x % 3 == i) for i in range(3)]
+                        return f"{counts[0]}:{counts[1]}:{counts[2]}" == target
 
-                if len(pro_rd) + len(pro_rt) >= 6 and pro_bb:
-                    with st.spinner("演算中..."):
-                        tuo_needed = 6 - len(pro_rd)
-                        all_c = list(itertools.combinations(pro_rt, tuo_needed))
-                        valid = []
-                        for t_comb in all_c:
-                            f = sorted(list(pro_rd) + list(t_comb))
-                            if u012 and not chk_012(f, pro_t012): continue
-                            if utail and len(set(x % 10 for x in f)) == len(f): continue 
-                            if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
-                            valid.append(f)
-                        st.success(f"🎉 演算完成！共 {len(valid)} 注")
-                        for idx, res in enumerate(valid[:20]):
-                            st.code(f"推荐 {idx+1:02d}: {' '.join([f'{x:02d}' for x in res])} | 蓝: {random.choice(pro_bb):02d}")
-                else: st.warning("⚠️ 红球总数需 ≥ 6 且选蓝球")
+                    if len(pro_rd) + len(pro_rt) >= 6 and pro_bb:
+                        with st.spinner("演算中..."):
+                            tuo_n = 6 - len(pro_rd)
+                            all_c = list(itertools.combinations(pro_rt, tuo_n))
+                            valid = []
+                            for t_comb in all_c:
+                                f = sorted(list(pro_rd) + list(t_comb))
+                                if u012 and not chk_012(f, pro_t012): continue
+                                if utail and len(set(x % 10 for x in f)) == len(f): continue 
+                                if ukill and any(f[i] == f[i-1]+1 and f[i+1] == f[i]+1 for i in range(1, len(f)-1)): continue
+                                valid.append(f)
+                            st.success(f"🎉 演算完成！共 {len(valid)} 注")
+                            for idx, res in enumerate(valid[:20]):
+                                st.code(f"推荐 {idx+1:02d}: {' '.join([f'{x:02d}' for x in res])} | 蓝: {random.choice(pro_bb):02d}")
+                    else: st.warning("⚠️ 红球总数需 ≥ 6 且选蓝球")
 
         with t6:
             st.markdown("### 💬 交流大厅")
