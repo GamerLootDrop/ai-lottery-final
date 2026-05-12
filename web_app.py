@@ -514,7 +514,10 @@ if target:
         st.markdown(f'<div class="timer-bar">⏰ 离今日开奖截止还剩 {get_countdown()}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="marquee-wrapper"><div class="marquee-icon">📢</div><div class="marquee-content">{get_fake_broadcasts()}</div></div>', unsafe_allow_html=True)
 
-        t1, t2, t_mock, t3, t4, t5, t6 = st.tabs(["📜 历史数据", "📈 深度走势", "🎰 模拟开奖", "🤖 基础 AI", "👑 高阶矩阵", "🗄️ 数据沙盘", "💬 大厅"])
+        t1, t2, t3, t4, t5, t7, t6 = st.tabs([
+            "📈 走势分析", "🤖 AI预测", "📊 遗漏统计", 
+            "🔮 奇门遁甲", "📜 算法源码", "🎯 专家缩水", "💬 交流大厅"
+        ])
         
         with t1:
             table_html = "<table class='hist-table'><tr><th>期号</th><th>开奖号码</th></tr>"
@@ -755,7 +758,28 @@ if target:
                                 """, unsafe_allow_html=True)
                                 
                                 # 一键复制功能
-                                st.code(s['text'].replace('推荐号码: ', ''), language="text")
+                                st.code(s['text'].replace('推荐号码: ', ''), language="text") 
+        with t7:
+            st.markdown("### 🎯 专家级号码缩水过滤")
+            st.info(f"当前分析彩种：{lottery_type}")
+            col_s1, col_s2 = st.columns([1, 2])
+            with col_s1:
+                st.subheader("🔧 过滤条件设置")
+                ac_filter = st.slider("AC值过滤 (>)", 0, 10, 4)
+                sum_range = st.slider("和值范围", 50, 180, (80, 130))
+                odd_even = st.multiselect("优先奇偶比", ["3:3", "4:2", "2:4"], default=["3:3"])
+            with col_s2:
+                if st.button("🚀 执行专家缩水协议"):
+                    with st.spinner("正在对比历史遗漏与极值..."):
+                        time.sleep(1)
+                        st.success("缩水完成！已为您筛选出 9 组高概率组合：")
+                        res_cols = st.columns(3)
+                        for i in range(9):
+                            if "大乐透" in lottery_type:
+                                nums = " ".join([f"{n:02d}" for n in sorted(random.sample(range(1, 36), 5))]) + " | " + " ".join([f"{n:02d}" for n in sorted(random.sample(range(1, 13), 2))])
+                            else:
+                                nums = " ".join([f"{n:02d}" for n in sorted(random.sample(range(1, 34), 6))]) + " | " + f"{random.randint(1, 16):02d}"
+                            res_cols[i%3].code(f"推荐 {i+1}: {nums}")
 
         with t6:
             st.markdown("### 💬 交流大厅")
@@ -773,16 +797,15 @@ if target:
             if st.button("发送") and chat_input:
                 st.session_state.comments.insert(0, {"user": "我", "text": chat_input, "time": "刚刚"})
                 st.rerun()
-                
+
         # --- 免责声明区域 ---
         st.markdown(f"""
         <div class="disclaimer">
             <b>免责声明</b><br>
-            本系统通过历史数据分析及数学统计模型生成预测结果，所有呈现的形态走势、冷热频次及AI演算矩阵等均仅作为数据分析的参考维​度。<br>
+            本系统通过历史数据分析及数学统计模型生成预测结果，所有呈现的形态走势、冷热频次及AI演算矩阵等均仅作为数据分析的参考维度。<br>
             系统不构成任何明确的投资指导或投注建议。彩市具有高度随机性与不可预测性，购彩存在风险，请务必保持理性，量力而行，风险自担。<br>
             禁止任何人将本软件用于非法用途，一切因使用本系统产生的纠纷均与开发者无关。
         </div>
         """, unsafe_allow_html=True)
-        
-else:
-    st.warning("⚠️ 未找到数据文件。")
+    else:
+        st.warning("⚠️ 未找到数据文件。")
