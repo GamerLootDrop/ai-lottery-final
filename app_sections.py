@@ -15,6 +15,7 @@ from formula_engine import (
     expert_compress_combinations,
     get_advanced_predictions,
     get_basic_predictions,
+    get_012_route_stats,
     run_tactical_manual_analysis,
     scan_advanced_patterns,
 )
@@ -224,6 +225,25 @@ def render_formula_section(df, choice, view_limit):
             all_012 += ["2:2:2", "3:2:1", "3:1:2", "1:2:3", "2:1:3", "2:3:1", "1:3:2", "4:1:1", "1:4:1"]
         target_012 = st.selectbox("012 路比例", all_012, key=f"target_012_{compress_choice}")
 
+        route_stats = get_012_route_stats(df.head(view_limit), compress_choice) if compress_choice == choice else None
+        if route_stats:
+            route_rows = route_stats["rows"]
+            selected_route = next((row for row in route_rows if row["route"] == target_012), None)
+            if selected_route:
+                route_metrics = [
+                    {"label": "理论一等奖占比", "value": f"{selected_route['theoretical_ratio'] * 100:.2f}%", "hint": f"{selected_route['theoretical_count']:,} 个组合", "color": "#81cfff"},
+                    {"label": f"近{view_limit}期实际占比", "value": f"{selected_route['actual_ratio'] * 100:.1f}%", "hint": f"出现 {selected_route['actual_count']} 次", "color": "#7dffa2"},
+                ]
+                render_metric_cards(route_metrics)
+            top_route_df = pd.DataFrame(route_rows[:8]).copy()
+            top_route_df["理论占比"] = top_route_df["theoretical_ratio"].map(lambda x: f"{x * 100:.2f}%")
+            top_route_df["窗口占比"] = top_route_df["actual_ratio"].map(lambda x: f"{x * 100:.1f}%")
+            top_route_df = top_route_df[["route", "理论占比", "actual_count", "窗口占比"]]
+            top_route_df.columns = ["012结构", "理论占比", "窗口次数", "窗口占比"]
+            st.dataframe(top_route_df, use_container_width=True, hide_index=True)
+        elif compress_choice != choice:
+            st.caption("012窗口占比需与顶部当前彩种一致；理论过滤仍可正常使用。")
+
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
             use_012 = st.checkbox("启用012过滤", value=True, key=f"use_012_{compress_choice}")
@@ -315,7 +335,36 @@ def render_tactical_section(df_base, choice, view_limit):
             (("\n蓝球: " + " ".join([f"{x:02d}" for x in result["blue_nums"]])) if result["blue_nums"] else "")
         )
 
+        heat_metrics = [
+            {"label": "红球样本数", "value": len(result["red_nums"]), "hint": "当前录入前区样本量", "color": "#81cfff"},
+            {"label": "蓝球样本数", "value": len(result["blue_nums"]), "hint": "当前录入后区样本量", "color": "#ff8a73"},
+            {"label": "高热号数", "value": len(result["hot_nums"]), "hint": "高频撞车区", "color": "#ffb4a5"},
+            {"label": "潜伏号数", "value": len(result["potential_nums"]), "hint": "冷区与单次样本", "color": "#7dffa2"},
+        ]
+        render_metric_cards(heat_metrics)
+
+        def render_heat_matrix(max_num, counts_dict, is_blue=False):
+            boxes = []
+            max_freq = max(counts_dict.values()) if counts_dict else 1
+            if max_freq <= 0:
+                max_freq = 1
+            for i in range(1, max_num + 1):
+                freq = counts_dict.get(i, 0)
+                ratio = freq / max_freq
+                if is_blue:
+                    bg = "#002266" if ratio > 0.7 else ("#0052D4" if ratio > 0.4 else ("#64B5F6" if freq > 0 else "#1e293b"))
+                else:
+                    bg = "#B31217" if ratio > 0.7 else ("#FF4B2B" if ratio > 0.4 else ("#FF8A75" if freq > 0 else "#1e293b"))
+                boxes.append(f'<div class="heat-box" style="background:{bg};"><b>{i:02d}</b><span>{freq}次</span></div>')
+            st.markdown(f'<div class="small-grid">{"".join(boxes)}</div>', unsafe_allow_html=True)
+
         st.markdown('<div class="section-title">反向结果</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">红球热力矩阵</div>', unsafe_allow_html=True)
+        render_heat_matrix(35 if is_dlt else 33, result["counts_red"], is_blue=False)
+        if result["counts_blue"]:
+            st.markdown('<div class="section-title">蓝球热力矩阵</div>', unsafe_allow_html=True)
+            render_heat_matrix(12 if is_dlt else 16, result["counts_blue"], is_blue=True)
+
         render_prediction_card("高热区域", "高频撞车样本，优先规避。", result["hot_nums"], [], choice, tone="accent")
         render_prediction_card("潜伏区域", "冷区与单次出现样本的并集。", result["potential_nums"][:6], [], choice)
         render_prediction_card("偏移阵地", "围绕高热样本做左右偏移。", result["offset_recommend"][:6], [], choice)

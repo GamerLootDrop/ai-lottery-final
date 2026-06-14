@@ -603,6 +603,58 @@ def expert_compress_combinations(choice, red_dan, red_tuo, blue_dan=None, blue_t
     }
 
 
+def get_012_route_stats(df_view, choice):
+    pool_r, count_r, _, _ = get_lottery_rules(choice)
+    if df_view is None or df_view.empty:
+        return None
+
+    safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
+    front_cols = list(safe_df.columns[1 : 1 + count_r])
+
+    actual_counter = Counter()
+    for _, row in safe_df.iterrows():
+        counts = [0, 0, 0]
+        nums = [int(row[col]) for col in front_cols]
+        for num in nums:
+            counts[num % 3] += 1
+        actual_counter[tuple(counts)] += 1
+
+    route_bucket_sizes = [sum(1 for n in pool_r if n % 3 == mod) for mod in [0, 1, 2]]
+    total_combinations = calculate_bets(len(pool_r), count_r)
+    theoretical_rows = []
+    for a in range(count_r + 1):
+        for b in range(count_r - a + 1):
+            c = count_r - a - b
+            ways = (
+                calculate_bets(route_bucket_sizes[0], a)
+                * calculate_bets(route_bucket_sizes[1], b)
+                * calculate_bets(route_bucket_sizes[2], c)
+            )
+            if ways <= 0:
+                continue
+            key = (a, b, c)
+            actual_count = actual_counter.get(key, 0)
+            actual_ratio = actual_count / len(safe_df) if len(safe_df) else 0
+            theoretical_ratio = ways / total_combinations if total_combinations else 0
+            theoretical_rows.append(
+                {
+                    "route": f"{a}:{b}:{c}",
+                    "counts": key,
+                    "theoretical_count": ways,
+                    "theoretical_ratio": theoretical_ratio,
+                    "actual_count": actual_count,
+                    "actual_ratio": actual_ratio,
+                }
+            )
+
+    theoretical_rows.sort(key=lambda x: (x["theoretical_ratio"], x["actual_ratio"]), reverse=True)
+    return {
+        "window_size": len(safe_df),
+        "route_bucket_sizes": route_bucket_sizes,
+        "rows": theoretical_rows,
+    }
+
+
 def scan_advanced_patterns(df_slice, df_full, is_dlt):
     front_cols = ["前1", "前2", "前3", "前4", "前5"] if is_dlt else ["前1", "前2", "前3", "前4", "前5", "前6"]
     repeat_count = 0
