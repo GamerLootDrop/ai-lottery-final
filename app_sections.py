@@ -1,4 +1,6 @@
 import random
+import re
+import time
 from collections import Counter
 
 import pandas as pd
@@ -235,6 +237,44 @@ def render_formula_section(df, choice, view_limit):
         if st.session_state.get("adv_click_count", 0) > 0:
             for item in get_advanced_predictions(df.head(view_limit), choice, st.session_state["adv_click_count"]):
                 render_prediction_card(item["name"], item["desc"], item["red"], item["blue"], choice, tone=item.get("tone", "primary"))
+
+        st.markdown('<div class="section-title">自建数据沙盘</div>', unsafe_allow_html=True)
+        sandbox_choice = st.selectbox("沙盘彩种", ["快乐8", "双色球", "大乐透", "七星彩", "排列5", "排列3", "福彩3D"], key="sandbox_choice")
+        uploaded_file = st.file_uploader("上传历史数据表格", type=["csv", "xlsx", "xls"], key="sandbox_file")
+        sandbox_text = st.text_area("或手动粘贴历史开奖号码", height=120, placeholder="每行一期，例如：01 02 03 04 05 06 07", key="sandbox_text")
+
+        if st.button("启动沙盘推演", use_container_width=True, key="sandbox_run"):
+            custom_df = None
+            if uploaded_file is not None:
+                try:
+                    custom_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+                    st.success(f"成功读取 {len(custom_df)} 行表格数据。")
+                except Exception as exc:
+                    st.error(f"表格解析失败：{exc}")
+            elif sandbox_text.strip():
+                lines = [line.strip() for line in sandbox_text.strip().splitlines() if line.strip()]
+                parsed_rows = []
+                for idx, line in enumerate(lines):
+                    nums = [int(n) for n in re.findall(r"\d+", line)]
+                    if nums:
+                        parsed_rows.append([len(lines) - idx] + nums)
+                if parsed_rows:
+                    custom_df = pd.DataFrame(parsed_rows)
+                    st.success(f"成功提取 {len(custom_df)} 期自定义样本。")
+                else:
+                    st.error("未识别到有效数字。")
+            else:
+                st.warning("请先上传表格或粘贴历史数据。")
+
+            if custom_df is not None:
+                seed = int(time.time()) + random.randint(1, 9999)
+                results = get_advanced_predictions(custom_df, sandbox_choice, seed)
+                st.session_state["sandbox_results"] = (sandbox_choice, results)
+
+        if st.session_state.get("sandbox_results"):
+            sandbox_result_choice, sandbox_results = st.session_state["sandbox_results"]
+            for item in sandbox_results:
+                render_prediction_card(item["name"], item["desc"], item["red"], item["blue"], sandbox_result_choice, tone=item.get("tone", "primary"))
 
         st.markdown('<div class="section-title">专家组合压缩</div>', unsafe_allow_html=True)
         compress_choice = st.selectbox("压缩彩种", ["双色球", "大乐透", "福彩3D", "排列3"], key="compress_choice")
