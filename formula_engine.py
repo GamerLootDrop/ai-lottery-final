@@ -2,6 +2,7 @@ import math
 import random
 import re
 import time
+import itertools
 from collections import Counter
 
 import pandas as pd
@@ -499,6 +500,106 @@ def derive_seed_combinations(df_view, choice, seed_text):
         "expanded": expanded,
         "score_rows": ranked,
         "window_size": window_size,
+    }
+
+
+def expert_compress_combinations(choice, red_dan, red_tuo, blue_dan=None, blue_tuo=None, target_012="自适应", use_012=True, kill_triple=True, unique_tail=False, max_checks=150000, max_results=50):
+    configs = {
+        "双色球": {"r_max": 33, "r_need": 6, "b_max": 16, "b_need": 1},
+        "大乐透": {"r_max": 35, "r_need": 5, "b_max": 12, "b_need": 2},
+        "福彩3D": {"r_max": 9, "r_need": 3, "b_max": 0, "b_need": 0},
+        "排列3": {"r_max": 9, "r_need": 3, "b_max": 0, "b_need": 0},
+    }
+    if choice not in configs:
+        return {"ok": False, "message": "当前彩种暂未接入组合压缩。"}
+
+    cfg = configs[choice]
+    blue_dan = blue_dan or []
+    blue_tuo = blue_tuo or []
+    red_dan = sorted(list(dict.fromkeys([int(x) for x in red_dan])))
+    red_tuo = sorted(list(dict.fromkeys([int(x) for x in red_tuo if int(x) not in red_dan])))
+    blue_dan = sorted(list(dict.fromkeys([int(x) for x in blue_dan])))
+    blue_tuo = sorted(list(dict.fromkeys([int(x) for x in blue_tuo if int(x) not in blue_dan])))
+
+    def check_012_logic(comb, target):
+        if target == "自适应" or ":" not in str(target):
+            return True
+        try:
+            target_counts = [int(i) for i in str(target).split(":")]
+        except Exception:
+            return True
+        actual_counts = [0, 0, 0]
+        for x in comb:
+            actual_counts[x % 3] += 1
+        return actual_counts == target_counts
+
+    def has_triple_consecutive(nums):
+        nums = sorted(nums)
+        return any(nums[i] == nums[i - 1] + 1 and nums[i + 1] == nums[i] + 1 for i in range(1, len(nums) - 1))
+
+    r_ok = len(red_dan) + len(red_tuo) >= cfg["r_need"]
+    b_ok = (len(blue_dan) + len(blue_tuo) >= cfg["b_need"]) if cfg["b_max"] > 0 else True
+    if not r_ok or not b_ok:
+        return {
+            "ok": False,
+            "message": f"选号素材不足：前区至少 {cfg['r_need']} 个，后区至少 {cfg['b_need']} 个。",
+        }
+
+    red_needed_from_tuo = cfg["r_need"] - len(red_dan)
+    valid_reds = []
+    checked_count = 0
+
+    if red_needed_from_tuo < 0:
+        valid_reds = [sorted(red_dan[: cfg["r_need"]])]
+    elif red_needed_from_tuo == 0:
+        current_red = sorted(red_dan)
+        if (not use_012 or check_012_logic(current_red, target_012)) and (not kill_triple or not has_triple_consecutive(current_red)) and (not unique_tail or len(set(x % 10 for x in current_red)) == len(current_red)):
+            valid_reds = [current_red]
+    else:
+        for rt in itertools.combinations(red_tuo, red_needed_from_tuo):
+            checked_count += 1
+            if checked_count > max_checks:
+                return {"ok": False, "message": "计算量过大，请增加胆码或减少拖码。"}
+
+            current_red = sorted(list(red_dan) + list(rt))
+            if use_012 and not check_012_logic(current_red, target_012):
+                continue
+            if kill_triple and has_triple_consecutive(current_red):
+                continue
+            if unique_tail and len(set(x % 10 for x in current_red)) != len(current_red):
+                continue
+            valid_reds.append(current_red)
+
+    if cfg["b_max"] > 0:
+        blue_needed_from_tuo = cfg["b_need"] - len(blue_dan)
+        if blue_needed_from_tuo <= 0:
+            valid_blues = [sorted(blue_dan[: cfg["b_need"]])]
+        elif len(blue_tuo) < blue_needed_from_tuo:
+            return {"ok": False, "message": "后区拖码不足。"}
+        else:
+            valid_blues = [sorted(list(blue_dan) + list(bt)) for bt in itertools.combinations(blue_tuo, blue_needed_from_tuo)]
+    else:
+        valid_blues = [[]]
+
+    total_count = len(valid_reds) * len(valid_blues)
+    samples = []
+    for red in valid_reds:
+        for blue in valid_blues:
+            samples.append({"red": red, "blue": blue})
+            if len(samples) >= max_results:
+                break
+        if len(samples) >= max_results:
+            break
+
+    return {
+        "ok": True,
+        "config": cfg,
+        "checked_count": checked_count,
+        "red_count": len(valid_reds),
+        "blue_count": len(valid_blues),
+        "total_count": total_count,
+        "budget": total_count * 2,
+        "samples": samples,
     }
 
 

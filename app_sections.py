@@ -12,6 +12,7 @@ from formula_engine import (
     calculate_bets,
     calculate_frequencies,
     derive_seed_combinations,
+    expert_compress_combinations,
     get_advanced_predictions,
     get_basic_predictions,
     run_tactical_manual_analysis,
@@ -193,6 +194,67 @@ def render_formula_section(df, choice, view_limit):
         if st.session_state.get("adv_click_count", 0) > 0:
             for item in get_advanced_predictions(df.head(view_limit), choice, st.session_state["adv_click_count"]):
                 render_prediction_card(item["name"], item["desc"], item["red"], item["blue"], choice, tone=item.get("tone", "primary"))
+
+        st.markdown('<div class="section-title">专家组合压缩</div>', unsafe_allow_html=True)
+        compress_choice = st.selectbox("压缩彩种", ["双色球", "大乐透", "福彩3D", "排列3"], key="compress_choice")
+        compress_cfg = {
+            "双色球": {"r_max": 33, "r_need": 6, "b_max": 16, "b_need": 1},
+            "大乐透": {"r_max": 35, "r_need": 5, "b_max": 12, "b_need": 2},
+            "福彩3D": {"r_max": 9, "r_need": 3, "b_max": 0, "b_need": 0},
+            "排列3": {"r_max": 9, "r_need": 3, "b_max": 0, "b_need": 0},
+        }[compress_choice]
+        r_range = list(range(1, compress_cfg["r_max"] + 1)) if compress_cfg["r_max"] > 10 else list(range(10))
+        c1, c2 = st.columns(2)
+        with c1:
+            red_dan = st.multiselect("前区胆码", r_range, key=f"red_dan_{compress_choice}")
+            red_tuo = st.multiselect("前区拖码", [n for n in r_range if n not in red_dan], key=f"red_tuo_{compress_choice}")
+        with c2:
+            if compress_cfg["b_max"] > 0:
+                b_range = list(range(1, compress_cfg["b_max"] + 1))
+                blue_dan = st.multiselect("后区胆码", b_range, key=f"blue_dan_{compress_choice}")
+                blue_tuo = st.multiselect("后区拖码", [n for n in b_range if n not in blue_dan], key=f"blue_tuo_{compress_choice}")
+            else:
+                st.info("该彩种无后区。")
+                blue_dan, blue_tuo = [], []
+
+        all_012 = ["自适应"]
+        if compress_cfg["r_need"] == 5:
+            all_012 += ["2:2:1", "2:1:2", "1:2:2", "3:1:1", "1:3:1", "1:1:3", "4:1:0", "4:0:1", "0:4:1", "1:4:0"]
+        elif compress_cfg["r_need"] == 6:
+            all_012 += ["2:2:2", "3:2:1", "3:1:2", "1:2:3", "2:1:3", "2:3:1", "1:3:2", "4:1:1", "1:4:1"]
+        target_012 = st.selectbox("012 路比例", all_012, key=f"target_012_{compress_choice}")
+
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            use_012 = st.checkbox("启用012过滤", value=True, key=f"use_012_{compress_choice}")
+        with fc2:
+            kill_triple = st.checkbox("过滤3连号", value=True, key=f"kill_triple_{compress_choice}")
+        with fc3:
+            unique_tail = st.checkbox("过滤同尾", value=False, key=f"unique_tail_{compress_choice}")
+
+        if st.button("启动组合压缩", use_container_width=True, key=f"compress_btn_{compress_choice}"):
+            st.session_state[f"compress_result_{compress_choice}"] = expert_compress_combinations(
+                compress_choice,
+                red_dan,
+                red_tuo,
+                blue_dan,
+                blue_tuo,
+                target_012=target_012,
+                use_012=use_012,
+                kill_triple=kill_triple,
+                unique_tail=unique_tail,
+            )
+
+        compress_result = st.session_state.get(f"compress_result_{compress_choice}")
+        if compress_result:
+            if not compress_result.get("ok"):
+                st.error(compress_result["message"])
+            else:
+                st.success(f"压缩完成：前区 {compress_result['red_count']} 组，后区 {compress_result['blue_count']} 组，共 {compress_result['total_count']} 注，预算 {compress_result['budget']} 元。")
+                for idx, item in enumerate(compress_result["samples"], start=1):
+                    red_txt = " ".join(format_number(n, compress_choice) for n in item["red"])
+                    blue_txt = " | " + " ".join(format_number(n, compress_choice) for n in item["blue"]) if item["blue"] else ""
+                    st.code(f"精华 {idx:02d}: {red_txt}{blue_txt}", language="text")
 
         if st.button("退出授权", use_container_width=True, key="logout_btn"):
             logout()
