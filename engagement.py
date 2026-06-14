@@ -1,6 +1,7 @@
 import hashlib
 import random
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -19,15 +20,20 @@ DRAW_SCHEDULES = {
 }
 
 WEEKDAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def get_next_draw(choice, now=None):
-    now = now or datetime.now()
+    now = now or datetime.now(BEIJING_TZ)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=BEIJING_TZ)
+    else:
+        now = now.astimezone(BEIJING_TZ)
     schedule = DRAW_SCHEDULES.get(choice, DRAW_SCHEDULES["双色球"])
     hour, minute = [int(x) for x in schedule["close_time"].split(":")]
     for day_offset in range(8):
         candidate_date = now.date() + timedelta(days=day_offset)
-        candidate = datetime.combine(candidate_date, datetime.min.time()).replace(hour=hour, minute=minute)
+        candidate = datetime.combine(candidate_date, datetime.min.time(), tzinfo=BEIJING_TZ).replace(hour=hour, minute=minute)
         if candidate.weekday() in schedule["weekdays"] and candidate > now:
             diff = candidate - now
             hours, remainder = divmod(int(diff.total_seconds()), 3600)
