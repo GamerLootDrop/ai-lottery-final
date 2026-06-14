@@ -123,8 +123,12 @@ def fetch_from_web(game_code, choice, d_cols_len, limit=50):
     urls = [
         f"https://datachart.500.com/{game_code}/history/newinc/history.php?limit={limit}",
         f"https://datachart.500.com/{game_code}/history/inc/history.php?limit={limit}",
+        f"https://datachart.500.com/{game_code}/history/history.shtml?limit={limit}",
     ]
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+        "Referer": f"https://datachart.500.com/{game_code}/history/history.shtml",
+    }
     web_rows = []
     for url in urls:
         try:
@@ -148,8 +152,26 @@ def fetch_from_web(game_code, choice, d_cols_len, limit=50):
                         date_str = re.search(r"\d{4}-\d{2}-\d{2}", txt).group(0)
                         break
 
-                rest_text = " ".join([td.get_text(separator=" ") for td in tds[1:]])
-                balls = [int(n) for n in re.findall(r"\d+", rest_text)]
+                balls = []
+                for span in tr.find_all(["span", "em", "i"], class_=re.compile(r"(ball|red|blue|chartBall|cfont|num)", re.I)):
+                    txt = span.get_text(strip=True)
+                    if txt.isdigit():
+                        balls.append(int(txt))
+
+                if len(balls) < d_cols_len:
+                    td_numbers = []
+                    for td in tds[1:]:
+                        txt = td.get_text(" ", strip=True)
+                        if re.search(r"\d{4}-\d{2}-\d{2}", txt):
+                            continue
+                        if txt.isdigit():
+                            td_numbers.append(int(txt))
+                        else:
+                            single_nums = re.findall(r"(?<!\d)(\d{1,2})(?!\d)", txt)
+                            if 1 <= len(single_nums) <= d_cols_len:
+                                td_numbers.extend([int(n) for n in single_nums])
+                    balls = td_numbers
+
                 balls = [n for n in balls if 0 <= n <= 81][:d_cols_len]
 
                 if len(balls) == d_cols_len:
@@ -161,18 +183,59 @@ def fetch_from_web(game_code, choice, d_cols_len, limit=50):
     return web_rows
 
 
+def fetch_from_cwl(choice, d_cols_len, limit=50):
+    cwl_names = {
+        "双色球": "ssq",
+        "福彩3D": "3d",
+        "快乐8": "kl8",
+    }
+    name = cwl_names.get(choice)
+    if not name:
+        return []
+    url = f"https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name={name}&issueCount={limit}"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://www.cwl.gov.cn/",
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        data = res.json()
+        rows = data.get("result") or data.get("data") or []
+        web_rows = []
+        for item in rows:
+            issue_text = str(item.get("code") or item.get("issue") or "")
+            iss_str = re.sub(r"\D", "", issue_text)
+            if not iss_str:
+                continue
+            issue_val = int(iss_str)
+            date_str = str(item.get("date") or item.get("openTime") or item.get("time") or "")
+            red_text = str(item.get("red") or item.get("redCode") or item.get("frontWinningNum") or "")
+            blue_text = str(item.get("blue") or item.get("blueCode") or item.get("backWinningNum") or "")
+            balls = [int(n) for n in re.findall(r"\d+", red_text + " " + blue_text)]
+            balls = [n for n in balls if 0 <= n <= 81][:d_cols_len]
+            if len(balls) == d_cols_len:
+                web_rows.append({"issue": issue_val, "date": date_str[:10], "balls": balls})
+        return web_rows
+    except Exception:
+        return []
+
+
 def build_synced_dataframe(df, q_col, d_cols, choice):
     local_latest_issue = str(df.iloc[0][q_col])
-    skip, skip_message = should_skip_fetch(choice, local_latest_issue)
-    if skip:
-        return df, skip_message
+    has_usable_date = "日期" in df.columns and df["日期"].notna().any() and df["日期"].astype(str).str.contains(r"\d{4}-\d{2}-\d{2}", regex=True).any()
+    if has_usable_date:
+        skip, skip_message = should_skip_fetch(choice, local_latest_issue)
+        if skip:
+            return df, skip_message
 
     web_data = fetch_from_web(WEB_GAME_CODES.get(choice, "ssq"), choice, len(d_cols))
+    if not web_data:
+        web_data = fetch_from_cwl(choice, len(d_cols))
     if not web_data:
         return None, "抓取失败，请检查网络或稍后再试。"
 
     latest_web_issue = str(web_data[0]["issue"])
-    if latest_web_issue == local_latest_issue:
+    if latest_web_issue == local_latest_issue and has_usable_date:
         record_fetch(choice, local_latest_issue)
         return df, f"当前已是全网最新数据，期号 {local_latest_issue}。"
 
