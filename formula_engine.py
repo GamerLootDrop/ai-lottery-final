@@ -795,7 +795,7 @@ def scan_advanced_patterns(df_slice, df_full, is_dlt):
     return repeat_count, consecutive_count
 
 
-def run_tactical_manual_analysis(raw_text, is_dlt, history_limit, recent_red_pool=None, recent_blue_pool=None, history_tongqi_pool=None, weekday_pool=None, weekday_blue_pool=None):
+def run_tactical_manual_analysis(raw_text, is_dlt, history_limit, recent_red_pool=None, recent_blue_pool=None, history_tongqi_pool=None, weekday_pool=None, weekday_blue_pool=None, recent_red_counts=None, recent_blue_counts=None):
     red_nums, blue_nums = parse_red_blue_from_text(raw_text, is_dlt=is_dlt)
     if not red_nums:
         return {"ok": False, "message": "未检测到有效号码，请检查输入格式。"}
@@ -828,12 +828,17 @@ def run_tactical_manual_analysis(raw_text, is_dlt, history_limit, recent_red_poo
     weekday_pool = weekday_pool or list(range(1, max_n + 1))
     recent_blue_pool = recent_blue_pool or list(range(1, max_b + 1))
     weekday_blue_pool = weekday_blue_pool or list(range(1, max_b + 1))
+    recent_red_counts = recent_red_counts or {}
+    recent_blue_counts = recent_blue_counts or {}
+    max_recent_red = max(recent_red_counts.values()) if recent_red_counts else 1
+    max_recent_blue = max(recent_blue_counts.values()) if recent_blue_counts else 1
 
     red_scores = {}
     for num in range(1, max_n + 1):
         score = 0
         if num in recent_red_pool:
             score += 3
+        score += 4 * (recent_red_counts.get(num, 0) / max_recent_red)
         if num in history_tongqi_pool:
             score += 2
         if num in weekday_pool:
@@ -847,6 +852,7 @@ def run_tactical_manual_analysis(raw_text, is_dlt, history_limit, recent_red_poo
         score = 0
         if num in recent_blue_pool:
             score += 3
+        score += 4 * (recent_blue_counts.get(num, 0) / max_recent_blue)
         if num in weekday_blue_pool:
             score += 2
         score = score - (counts_blue.get(num, 0) * 2)

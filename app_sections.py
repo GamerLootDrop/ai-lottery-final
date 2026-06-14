@@ -394,6 +394,11 @@ def render_tactical_section(df_base, choice, view_limit):
             front_counts, back_counts = calculate_frequencies(df_base.head(view_limit), is_dlt=is_dlt)
             recent_red_pool = [x[0] for x in front_counts.most_common(15)]
             recent_blue_pool = [x[0] for x in back_counts.most_common(6)]
+            recent_red_counts = dict(front_counts)
+            recent_blue_counts = dict(back_counts)
+        else:
+            recent_red_counts = {}
+            recent_blue_counts = {}
 
         result = run_tactical_manual_analysis(
             raw_text,
@@ -404,10 +409,21 @@ def render_tactical_section(df_base, choice, view_limit):
             history_tongqi_pool=history_tongqi_pool,
             weekday_pool=weekday_pool,
             weekday_blue_pool=weekday_blue_pool,
+            recent_red_counts=recent_red_counts,
+            recent_blue_counts=recent_blue_counts,
         )
-        st.session_state["tactical_result"] = result
+        st.session_state["tactical_result"] = {
+            "choice": choice,
+            "view_limit": view_limit,
+            "raw_text": raw_text,
+            "result": result,
+        }
 
-    result = st.session_state.get("tactical_result")
+    tactical_state = st.session_state.get("tactical_result")
+    result = tactical_state.get("result") if isinstance(tactical_state, dict) else tactical_state
+    if isinstance(tactical_state, dict) and result:
+        if tactical_state.get("choice") != choice or tactical_state.get("view_limit") != view_limit or tactical_state.get("raw_text") != raw_text:
+            st.warning("当前显示的是上一次分析结果；彩种、期数或输入内容已变化，请重新点击“启动样本分析”。")
     if result and result.get("ok"):
         st.markdown('<div class="section-title">样本核对</div>', unsafe_allow_html=True)
         st.code(
