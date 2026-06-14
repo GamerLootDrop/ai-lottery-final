@@ -282,6 +282,130 @@ def calculate_bets(n, r):
     return math.comb(n, r) if r <= n and r >= 0 else 0
 
 
+def _safe_div(numerator, denominator, default=0):
+    return numerator / denominator if denominator else default
+
+
+def _odd_even_distribution_probability(pool, draw_count, observed_odd_count):
+    odd_total = sum(1 for n in pool if n % 2 == 1)
+    even_total = len(pool) - odd_total
+    total = calculate_bets(len(pool), draw_count)
+    hit = calculate_bets(odd_total, observed_odd_count) * calculate_bets(even_total, draw_count - observed_odd_count)
+    return _safe_div(hit, total)
+
+
+def _repeat_distribution_probability(pool_size, draw_count, repeat_count):
+    total = calculate_bets(pool_size, draw_count)
+    hit = calculate_bets(draw_count, repeat_count) * calculate_bets(pool_size - draw_count, draw_count - repeat_count)
+    return _safe_div(hit, total)
+
+
+def build_probability_profile(df_view, choice, bet_count=1):
+    """Build a real window-based probability profile from the selected historical period."""
+    pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
+    if df_view is None or df_view.empty:
+        return None
+
+    safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
+    draw_cols = list(safe_df.columns[1 : 1 + count_r + count_b])
+    front_cols = list(safe_df.columns[1 : 1 + count_r])
+    back_cols = list(safe_df.columns[1 + count_r : 1 + count_r + count_b])
+    window_size = len(safe_df)
+
+    sums = safe_df[draw_cols].sum(axis=1)
+    expected_sum = float(sums.mean())
+    variance = float(((sums - expected_sum) ** 2).mean())
+    std_dev = math.sqrt(variance)
+    risk_index = _safe_div(std_dev, expected_sum)
+
+    total_combinations = calculate_bets(len(pool_r), count_r)
+    if count_b > 0:
+        total_combinations *= calculate_bets(len(pool_b), count_b)
+    single_hit_probability = _safe_div(1, total_combinations)
+    no_repeat_multi_probability = min(_safe_div(bet_count, total_combinations), 1)
+    repeatable_multi_probability = 1 - ((1 - single_hit_probability) ** bet_count)
+
+    front_values = safe_df[front_cols].values.flatten().tolist()
+    front_values = [n for n in front_values if n in pool_r]
+    front_counter = Counter(front_values)
+    average_frequency = _safe_div(sum(front_counter.values()), len(pool_r))
+    max_frequency = max(front_counter.values()) if front_counter else 0
+
+    scored_numbers = []
+    for num in pool_r:
+        freq = front_counter.get(num, 0)
+        omission = 0
+        for _, row in safe_df.iterrows():
+            row_nums = [int(row[col]) for col in front_cols]
+            if num in row_nums:
+                break
+            omission += 1
+
+        base_p = _safe_div(count_r, len(pool_r))
+        if freq <= average_frequency:
+            corrected = base_p * (1 + _safe_div(omission, max(window_size, 1)))
+            zone = "冷修正"
+        else:
+            corrected = base_p * (1 - 0.45 * _safe_div(freq - average_frequency, max(max_frequency, 1)))
+            zone = "热降权"
+
+        corrected = max(corrected, 0)
+        scored_numbers.append(
+            {
+                "号码": num,
+                "频次": freq,
+                "遗漏": omission,
+                "修正概率": corrected,
+                "状态": zone,
+            }
+        )
+
+    corrected_rank = sorted(scored_numbers, key=lambda x: (x["修正概率"], x["遗漏"], -x["频次"]), reverse=True)
+
+    odd_counts = []
+    repeat_counts = []
+    for idx, (_, row) in enumerate(safe_df.iterrows()):
+        nums = [int(row[col]) for col in front_cols]
+        odd_counts.append(sum(1 for n in nums if n % 2 == 1))
+        if idx + 1 < len(safe_df):
+            prev_nums = set(int(safe_df.iloc[idx + 1][col]) for col in front_cols)
+            repeat_counts.append(len(set(nums).intersection(prev_nums)))
+
+    common_odd_count = Counter(odd_counts).most_common(1)[0][0] if odd_counts else 0
+    common_repeat_count = Counter(repeat_counts).most_common(1)[0][0] if repeat_counts else 0
+    odd_probability = _odd_even_distribution_probability(pool_r, count_r, common_odd_count)
+    repeat_probability = _repeat_distribution_probability(len(pool_r), count_r, common_repeat_count)
+
+    back_summary = []
+    if count_b > 0 and back_cols:
+        back_values = safe_df[back_cols].values.flatten().tolist()
+        back_values = [n for n in back_values if n in pool_b]
+        back_counter = Counter(back_values)
+        back_summary = [
+            {"号码": num, "频次": back_counter.get(num, 0)}
+            for num in pool_b
+        ]
+        back_summary = sorted(back_summary, key=lambda x: x["频次"], reverse=True)
+
+    return {
+        "window_size": window_size,
+        "total_combinations": total_combinations,
+        "single_hit_probability": single_hit_probability,
+        "no_repeat_multi_probability": no_repeat_multi_probability,
+        "repeatable_multi_probability": repeatable_multi_probability,
+        "expected_sum": expected_sum,
+        "variance": variance,
+        "std_dev": std_dev,
+        "risk_index": risk_index,
+        "common_odd_count": common_odd_count,
+        "odd_probability": odd_probability,
+        "common_repeat_count": common_repeat_count,
+        "repeat_probability": repeat_probability,
+        "corrected_rank": corrected_rank,
+        "back_summary": back_summary,
+    }
+
+
 def scan_advanced_patterns(df_slice, df_full, is_dlt):
     front_cols = ["前1", "前2", "前3", "前4", "前5"] if is_dlt else ["前1", "前2", "前3", "前4", "前5", "前6"]
     repeat_count = 0
@@ -396,4 +520,3 @@ def run_tactical_manual_analysis(raw_text, is_dlt, history_limit, recent_red_poo
         "history_limit": history_limit,
         "is_dlt": is_dlt,
     }
-

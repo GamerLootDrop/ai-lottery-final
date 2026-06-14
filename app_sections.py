@@ -8,6 +8,7 @@ from auth import MY_WECHAT_ID, logout, unlock_with_code
 from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
 from formula_engine import (
+    build_probability_profile,
     calculate_bets,
     calculate_frequencies,
     get_advanced_predictions,
@@ -105,6 +106,52 @@ def render_formula_section(df, choice, view_limit):
     if st.session_state.get("basic_click_count", 0) > 0:
         for item in get_basic_predictions(df.head(view_limit), choice, st.session_state["basic_click_count"]):
             render_prediction_card(item["name"], item["desc"], item["red"], item["blue"], choice)
+
+    st.markdown('<div class="section-title">窗口概率画像</div>', unsafe_allow_html=True)
+    bet_count = st.number_input("评估注数", min_value=1, max_value=500, value=10, step=1, key=f"bet_count_{choice}")
+    profile = build_probability_profile(df.head(view_limit), choice, bet_count=bet_count)
+    if profile:
+        probability_metrics = [
+            {"label": "理论组合数", "value": f"{profile['total_combinations']:,}", "hint": f"基于近 {profile['window_size']} 期窗口", "color": "#81cfff"},
+            {"label": "和值期望", "value": f"{profile['expected_sum']:.1f}", "hint": "真实窗口均值", "color": "#7dffa2"},
+            {"label": "和值方差", "value": f"{profile['variance']:.1f}", "hint": f"标准差 {profile['std_dev']:.1f}", "color": "#ff8a73"},
+            {"label": "风险指数", "value": f"{profile['risk_index']:.3f}", "hint": "标准差 / 期望", "color": "#ffb4a5"},
+        ]
+        render_metric_cards(probability_metrics)
+
+        st.markdown(
+            f"""
+            <div class="glass-card result-card">
+              <div class="result-title">真实窗口概率说明</div>
+              <div class="result-desc">以下结果严格基于当前期数窗口 {view_limit} 期历史样本，不读取更长样本，不做伪随机修饰。</div>
+              <div class="code-line">单注命中概率：{profile['single_hit_probability']:.10f} | {bet_count} 注不重复命中概率：{profile['no_repeat_multi_probability']:.10f} | {bet_count} 注可重复命中概率：{profile['repeatable_multi_probability']:.10f}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="glass-card result-card">
+              <div class="result-title">结构分布</div>
+              <div class="result-desc">奇偶与重号概率按当前彩种的真实组合空间计算。</div>
+              <div class="code-line">主奇偶结构：{profile['common_odd_count']} 奇 | 概率 {profile['odd_probability']:.6f} | 常见重号数：{profile['common_repeat_count']} | 概率 {profile['repeat_probability']:.6f}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="section-title">冷热修正排名</div>', unsafe_allow_html=True)
+        hot_cold_df = pd.DataFrame(profile["corrected_rank"][:15]).copy()
+        hot_cold_df["号码"] = hot_cold_df["号码"].map(lambda x: format_number(x, choice))
+        hot_cold_df["修正概率"] = hot_cold_df["修正概率"].map(lambda x: f"{x:.6f}")
+        st.dataframe(hot_cold_df, use_container_width=True, hide_index=True)
+
+        if profile["back_summary"]:
+            st.markdown('<div class="section-title">后区频次</div>', unsafe_allow_html=True)
+            back_df = pd.DataFrame(profile["back_summary"][:8]).copy()
+            back_df["号码"] = back_df["号码"].map(lambda x: format_number(x, choice))
+            st.dataframe(back_df, use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">高阶公式</div>', unsafe_allow_html=True)
     if not st.session_state.get("vip_unlocked"):
