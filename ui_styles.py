@@ -386,7 +386,7 @@ TACTICAL_CSS = """
     padding: 0.35rem 0.5rem 5.5rem !important;
   }
   .topbar {
-    height: 44px;
+    height: 42px;
     margin-bottom: 6px;
     padding: 0 9px;
     border-radius: 10px;
@@ -457,15 +457,21 @@ TACTICAL_CSS = """
   .access-strip {
     gap: 8px;
     margin-bottom: 7px;
-    padding: 10px;
+    padding: 8px 10px;
     border-radius: 10px;
   }
   .access-strip.access-compact {
     align-items: center;
     flex-direction: row;
+    min-height: 58px;
+  }
+  .access-strip.access-compact .result-title {
+    font-size: 13px;
+    margin-bottom: 2px;
   }
   .access-strip.access-compact .result-desc {
     margin-bottom: 0;
+    line-height: 1.35;
   }
   .access-badge {
     align-self: flex-start;
@@ -505,10 +511,14 @@ TACTICAL_CSS = """
     border-radius: 10px;
   }
   [data-testid="stHorizontalBlock"] {
-    gap: 0.45rem;
+    gap: 0.38rem;
   }
   [data-testid="stVerticalBlock"] {
-    gap: 0.35rem;
+    gap: 0.28rem;
+  }
+  [data-testid="stWidgetLabel"] {
+    min-height: 1rem;
+    margin-bottom: 0.15rem;
   }
   [data-testid="stDataFrame"] {
     border-radius: 10px;

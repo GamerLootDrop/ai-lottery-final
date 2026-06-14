@@ -20,24 +20,18 @@ if "page" not in st.session_state:
     st.session_state["page"] = "数据看板"
 
 with st.container():
-    col1, col2 = st.columns([1.2, 1])
+    col1, col2, col3 = st.columns([1.2, 1, 0.8])
     with col1:
         choice = st.selectbox("选择彩种", ["双色球", "大乐透", "福彩3D", "排列3", "排列5", "七星彩", "快乐8"])
     with col2:
         view_choice = st.selectbox("战术期数", [5, 10, 29, 30, 50, 100], index=3)
-
-page_options = [("看板", "数据看板"), ("录入", "手动录入"), ("公式", "公式中心"), ("大厅", "交流大厅")]
-current_page = st.session_state.get("page", "数据看板")
-if current_page not in [item[1] for item in page_options]:
-    current_page = "数据看板"
-nav_cols = st.columns(4)
-for nav_col, (short_label, page_name) in zip(nav_cols, page_options):
-    with nav_col:
-        label = f"● {short_label}" if current_page == page_name else short_label
-        if st.button(label, use_container_width=True, key=f"top_nav_{short_label}"):
-            st.session_state["page"] = page_name
-            st.rerun()
-page = st.session_state.get("page", current_page)
+    with col3:
+        page_options = ["数据看板", "手动录入", "公式中心", "交流大厅"]
+        current_page = st.session_state.get("page", "数据看板")
+        if current_page not in page_options:
+            current_page = "数据看板"
+        page = st.selectbox("页面", page_options, index=page_options.index(current_page))
+        st.session_state["page"] = page
 
 view_limit = int(view_choice)
 
