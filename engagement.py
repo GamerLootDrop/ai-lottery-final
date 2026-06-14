@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 DRAW_SCHEDULES = {
@@ -38,6 +39,36 @@ def get_next_draw(choice, now=None):
                 "close_time": schedule["close_time"],
             }
     return None
+
+
+def render_countdown_widget(choice):
+    draw_info = get_next_draw(choice)
+    if not draw_info:
+        return
+    target_ts = int(draw_info["target"].timestamp() * 1000)
+    safe_choice = str(choice)
+    html = f"""
+    <div style="background:rgba(28,27,27,.68);border:1px solid rgba(135,146,155,.16);border-radius:16px;padding:16px;color:#e5e2e1;font-family:Inter,Arial,sans-serif;">
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px;">下期开奖提醒</div>
+      <div style="color:#bdc8d1;font-size:13px;margin-bottom:12px;">{safe_choice} | {draw_info["weekday"]} {draw_info["close_time"]} 截止 | 按开奖日规则推算</div>
+      <div id="countdown-box" style="font-family:monospace;font-size:18px;letter-spacing:1px;background:rgba(14,14,14,.78);border:1px solid rgba(135,146,155,.16);border-radius:12px;padding:12px 14px;">--:--:--</div>
+    </div>
+    <script>
+      const target = {target_ts};
+      const el = document.getElementById("countdown-box");
+      function tick() {{
+        const diff = Math.max(0, target - Date.now());
+        const total = Math.floor(diff / 1000);
+        const h = String(Math.floor(total / 3600)).padStart(2, "0");
+        const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+        const s = String(total % 60).padStart(2, "0");
+        el.textContent = h + ":" + m + ":" + s;
+      }}
+      tick();
+      setInterval(tick, 1000);
+    </script>
+    """
+    components.html(html, height=138)
 
 
 def visitor_alias(seed_text):
@@ -111,4 +142,3 @@ def submit_comment(nickname, content, choice):
         return True, "提交成功。"
     except Exception as exc:
         return False, f"提交失败：{exc}"
-

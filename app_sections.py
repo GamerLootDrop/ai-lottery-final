@@ -9,7 +9,7 @@ import streamlit as st
 from auth import MY_WECHAT_ID, logout, unlock_with_code
 from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
-from engagement import get_next_draw, get_usage_snapshot, load_comments, submit_comment
+from engagement import get_next_draw, get_usage_snapshot, load_comments, render_countdown_widget, submit_comment
 from formula_engine import (
     build_probability_profile,
     build_cycle_filter_report,
@@ -31,18 +31,7 @@ def render_dashboard(df, choice, view_limit):
         st.warning("当前没有可用数据。")
         return
 
-    draw_info = get_next_draw(choice)
-    if draw_info:
-        st.markdown(
-            f"""
-            <div class="glass-card result-card">
-              <div class="result-title">下期开奖倒计时</div>
-              <div class="result-desc">{choice} | {draw_info["weekday"]} {draw_info["close_time"]} 截止</div>
-              <div class="code-line">{draw_info["remaining"]}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    render_countdown_widget(choice)
 
     filter_mode = st.radio("分析维度", ["近期连贯", "历史同期", "星期走势"], horizontal=True)
     target_period = None
@@ -561,12 +550,7 @@ def render_lobby(choice="双色球"):
     ]
     render_metric_cards(lobby_metrics)
 
-    draw_info = get_next_draw(choice)
-    if draw_info:
-        st.markdown(
-            f'<div class="glass-card result-card"><div class="result-title">开奖提醒</div><div class="result-desc">{choice} 下次截止：{draw_info["weekday"]} {draw_info["close_time"]}</div><div class="code-line">{draw_info["remaining"]}</div></div>',
-            unsafe_allow_html=True,
-        )
+    render_countdown_widget(choice)
 
     st.markdown('<div class="section-title">系统公告</div>', unsafe_allow_html=True)
     notices = [
