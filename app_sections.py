@@ -8,7 +8,7 @@ import streamlit as st
 
 from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card, render_unlock_panel
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
-from engagement import get_next_draw, get_usage_snapshot, load_comments, render_countdown_widget, submit_comment
+from engagement import DRAW_SCHEDULES, WEEKDAY_NAMES, get_next_draw, get_usage_snapshot, load_comments, render_countdown_widget, submit_comment
 from formula_engine import (
     build_probability_profile,
     build_cycle_filter_report,
@@ -40,7 +40,8 @@ def render_dashboard(df, choice, view_limit):
         default_target = int(latest_issue[-3:]) + 1 if len(latest_issue) >= 3 else 1
         target_period = st.number_input("目标同期尾号", min_value=1, max_value=160, value=default_target, step=1)
     elif filter_mode == "星期走势":
-        weekday_options = ["周一", "周三", "周六"] if choice == "大乐透" else ["周二", "周四", "周日"]
+        schedule = DRAW_SCHEDULES.get(choice, {})
+        weekday_options = [WEEKDAY_NAMES[i] for i in schedule.get("weekdays", list(range(7)))]
         weekday = st.selectbox("开奖星期", weekday_options)
 
     cycle_report = build_cycle_filter_report(
@@ -124,6 +125,25 @@ def render_dashboard(df, choice, view_limit):
         {"label": "历史连号率", "value": consecutive_rate, "hint": "连号出现频率", "color": "#ffb4a5"},
     ]
     render_metric_cards(metrics)
+
+    if cycle_report and cycle_report.get("ok") and filter_mode == "星期走势":
+        front_rank = cycle_report.get("front_rank", [])
+        back_rank = cycle_report.get("back_rank", [])
+        front_hot = [row["号码"] for row in front_rank[: max(1, min(count_r + 2, len(front_rank)))]]
+        front_cold = [row["号码"] for row in sorted(front_rank, key=lambda x: (x["频次"], x["号码"]))[: max(1, min(count_r + 2, len(front_rank)))]]
+
+        st.markdown('<div class="section-title">星期独立热区</div>', unsafe_allow_html=True)
+        render_prediction_card(f"{weekday} 前区高频", f"仅统计当前 {weekday} 的近 {cycle_report['sample_size']} 个有效样本。", front_hot, [], choice)
+        render_prediction_card(f"{weekday} 前区低频", "同一开奖星期内出现较少的号码，用于冷门观察。", front_cold, [], choice, tone="accent")
+
+        if back_rank:
+            back_hot = [row["号码"] for row in back_rank[: max(1, min(count_b + 3, len(back_rank)))]]
+            render_prediction_card(f"{weekday} 后区高频", "后区仅按同星期窗口单独计数。", back_hot, [], choice, tone="accent")
+
+        front_rank_df = pd.DataFrame(front_rank[:12]).copy()
+        if not front_rank_df.empty:
+            front_rank_df["号码"] = front_rank_df["号码"].map(lambda x: format_number(x, choice))
+            st.dataframe(front_rank_df, use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">和值走势</div>', unsafe_allow_html=True)
     chart_df = calc_df[["期号", "和值"]].sort_values(by="期号").set_index("期号")
