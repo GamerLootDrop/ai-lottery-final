@@ -1,18 +1,26 @@
 import streamlit as st
+from urllib.parse import urlencode
 
 from auth import MY_WECHAT_ID, logout, unlock_with_code
 from lottery_rules import format_number
 
 
 def render_topbar(title):
-    left, mid, right = st.columns([0.9, 1.5, 0.7])
-    with left:
-        st.markdown('<div class="topbar-side">战术中控</div>', unsafe_allow_html=True)
-    with mid:
-        st.markdown(f'<div class="topbar-title">{title}</div>', unsafe_allow_html=True)
-    with right:
-        if st.button("设置", use_container_width=True, key="open_settings"):
-            st.session_state["show_settings"] = True
+    if st.query_params.get("settings") == "1":
+        st.session_state["show_settings"] = True
+    params = {key: value for key, value in st.query_params.items()}
+    params["settings"] = "1"
+    settings_href = "?" + urlencode(params, doseq=True)
+    st.markdown(
+        f"""
+        <div class="topbar">
+          <div class="muted">战术中控</div>
+          <div class="topbar-title">{title}</div>
+          <a class="topbar-link" href="{settings_href}" target="_self">设置</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     render_settings_dialog()
 
 
@@ -42,6 +50,8 @@ def render_settings_dialog():
             st.rerun()
         if st.button("关闭", use_container_width=True, key="settings_close"):
             st.session_state["show_settings"] = False
+            if "settings" in st.query_params:
+                del st.query_params["settings"]
             st.rerun()
 
     if dialog:
