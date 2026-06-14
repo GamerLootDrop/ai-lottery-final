@@ -450,6 +450,62 @@ def render_tactical_section(df_base, choice, view_limit):
         render_prediction_card("偏移阵地", "围绕高热样本做左右偏移。", result["offset_recommend"][:6], [], choice)
         render_prediction_card("主推单式", "多维交集后的主推参考。", result["final_math_reds"], result["final_math_blues"], choice)
         render_prediction_card("复式扩容", f"理论组合 {result['zhusu']} 注。", result["fushi_math_reds"], result["fushi_math_blues"], choice, tone="accent")
+
+        st.markdown('<div class="section-title">胆拖全托预算</div>', unsafe_allow_html=True)
+        if is_dlt:
+            d4 = result["dan_primary"]
+            d3 = result["dan_secondary"]
+            d4_red_bets = calculate_bets(35 - len(d4), 5 - len(d4))
+            d3_red_bets = calculate_bets(35 - len(d3), 5 - len(d3))
+            blue_all = calculate_bets(12, 2)
+            plans = [
+                {
+                    "title": "大乐透四胆全托",
+                    "dan": d4,
+                    "red_bets": d4_red_bets,
+                    "fixed_blue_budget": d4_red_bets * 2,
+                    "all_blue_bets": d4_red_bets * blue_all,
+                    "all_blue_budget": d4_red_bets * blue_all * 2,
+                    "desc": "前区锁定 4 个胆码，其余 31 个红球全托补 1 位。",
+                },
+                {
+                    "title": "大乐透三胆全托",
+                    "dan": d3,
+                    "red_bets": d3_red_bets,
+                    "fixed_blue_budget": d3_red_bets * 2,
+                    "all_blue_bets": d3_red_bets * blue_all,
+                    "all_blue_budget": d3_red_bets * blue_all * 2,
+                    "desc": "前区锁定 3 个胆码，其余 32 个红球全托补 2 位。",
+                },
+            ]
+        else:
+            d5 = result["dan_primary"]
+            d5_red_bets = calculate_bets(33 - len(d5), 6 - len(d5))
+            plans = [
+                {
+                    "title": "双色球五胆全托",
+                    "dan": d5,
+                    "red_bets": d5_red_bets,
+                    "fixed_blue_budget": d5_red_bets * 2,
+                    "all_blue_bets": d5_red_bets * 16,
+                    "all_blue_budget": d5_red_bets * 16 * 2,
+                    "desc": "前区锁定 5 个胆码，其余 28 个红球全托补 1 位。",
+                }
+            ]
+
+        for plan in plans:
+            dan_txt = " ".join(format_number(n, choice) for n in plan["dan"])
+            st.markdown(
+                f"""
+                <div class="glass-card result-card">
+                  <div class="result-title">{plan["title"]}</div>
+                  <div class="result-desc">{plan["desc"]}</div>
+                  <div class="code-line">胆码：{dan_txt}</div>
+                  <div class="result-desc" style="margin-top:10px;">前区组合：{plan["red_bets"]:,} 注 | 后区精选预算：{plan["fixed_blue_budget"]:,} 元 | 后区全托：{plan["all_blue_bets"]:,} 注 / {plan["all_blue_budget"]:,} 元</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     elif result and not result.get("ok"):
         st.error(result["message"])
     render_bottom_nav("录入")
