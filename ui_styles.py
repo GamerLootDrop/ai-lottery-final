@@ -442,14 +442,20 @@ TACTICAL_CSS = """
     font-size: 11px;
   }
   .number-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
   }
   .number-separator {
     display: none;
   }
   .number-orb {
-    font-size: 17px;
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
+    aspect-ratio: auto;
+    font-size: 16px;
   }
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
