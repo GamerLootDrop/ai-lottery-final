@@ -373,24 +373,6 @@ TACTICAL_CSS = """
   border-color: rgba(135, 146, 155, 0.16);
 }
 
-.stRadio [role="radiogroup"] {
-  display: flex;
-  gap: 8px;
-  padding: 6px;
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  background: rgba(19, 19, 19, 0.84);
-}
-
-.stRadio [role="radio"] {
-  flex: 1;
-  justify-content: center;
-  min-height: 40px;
-  border-radius: 10px;
-  padding: 0 8px;
-  background: rgba(229, 226, 225, 0.06);
-}
-
 @media (max-width: 640px) {
   .stApp {
     background: #0f0f0f;
@@ -518,16 +500,6 @@ TACTICAL_CSS = """
     min-height: 44px;
     border-radius: 10px;
     font-size: 14px;
-  }
-  .stRadio [role="radiogroup"] {
-    gap: 5px;
-    padding: 5px;
-    border-radius: 12px;
-  }
-  .stRadio [role="radio"] {
-    min-height: 38px;
-    padding: 0 5px;
-    font-size: 13px;
   }
   .stSelectbox [data-baseweb="select"] > div,
   .stTextInput input,

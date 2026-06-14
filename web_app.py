@@ -25,18 +25,13 @@ with st.container():
         choice = st.selectbox("选择彩种", ["双色球", "大乐透", "福彩3D", "排列3", "排列5", "七星彩", "快乐8"])
     with col2:
         view_choice = st.selectbox("战术期数", [5, 10, 29, 30, 50, 100], index=3)
-
-page_map = {"看板": "数据看板", "录入": "手动录入", "公式": "公式中心", "大厅": "交流大厅"}
-reverse_page_map = {v: k for k, v in page_map.items()}
-current_page = st.session_state.get("page", "数据看板")
-if current_page not in reverse_page_map:
-    current_page = "数据看板"
-current_short = reverse_page_map[current_page]
-if st.session_state.get("page_short") != current_short:
-    st.session_state["page_short"] = current_short
-page_short = st.radio("页面", list(page_map.keys()), horizontal=True, label_visibility="collapsed", key="page_short")
-page = page_map[page_short]
-st.session_state["page"] = page
+    with col3:
+        page_options = ["数据看板", "手动录入", "公式中心", "交流大厅"]
+        current_page = st.session_state.get("page", "数据看板")
+        if current_page not in page_options:
+            current_page = "数据看板"
+        page = st.selectbox("页面", page_options, index=page_options.index(current_page))
+        st.session_state["page"] = page
 
 view_limit = int(view_choice)
 
