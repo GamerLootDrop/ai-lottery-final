@@ -9,6 +9,7 @@ import streamlit as st
 from auth import MY_WECHAT_ID, logout, unlock_with_code
 from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
+from engagement import get_next_draw, get_usage_snapshot, load_comments, submit_comment
 from formula_engine import (
     build_probability_profile,
     build_cycle_filter_report,
@@ -29,6 +30,19 @@ def render_dashboard(df, choice, view_limit):
     if df is None or df.empty:
         st.warning("当前没有可用数据。")
         return
+
+    draw_info = get_next_draw(choice)
+    if draw_info:
+        st.markdown(
+            f"""
+            <div class="glass-card result-card">
+              <div class="result-title">下期开奖倒计时</div>
+              <div class="result-desc">{choice} | {draw_info["weekday"]} {draw_info["close_time"]} 截止</div>
+              <div class="code-line">{draw_info["remaining"]}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     filter_mode = st.radio("分析维度", ["近期连贯", "历史同期", "星期走势"], horizontal=True)
     target_period = None
@@ -538,7 +552,56 @@ def render_tactical_section(df_base, choice, view_limit):
     render_bottom_nav("录入")
 
 
-def render_lobby():
+def render_lobby(choice="双色球"):
+    st.markdown('<div class="section-title">动态大厅</div>', unsafe_allow_html=True)
+    usage = get_usage_snapshot(choice)
+    lobby_metrics = [
+        {"label": "今日访问", "value": usage["today_visits"], "hint": "当前实例统计", "color": "#81cfff"},
+        {"label": "在线热度", "value": usage["online_estimate"], "hint": "实时波动估算", "color": "#7dffa2"},
+    ]
+    render_metric_cards(lobby_metrics)
+
+    draw_info = get_next_draw(choice)
+    if draw_info:
+        st.markdown(
+            f'<div class="glass-card result-card"><div class="result-title">开奖提醒</div><div class="result-desc">{choice} 下次截止：{draw_info["weekday"]} {draw_info["close_time"]}</div><div class="code-line">{draw_info["remaining"]}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<div class="section-title">系统公告</div>', unsafe_allow_html=True)
+    notices = [
+        "窗口概率画像已接入期望、方差、风险指数。",
+        "012 路支持理论一等奖占比与当前窗口实际占比。",
+        "手动录入已接入热力矩阵与胆拖预算。",
+    ]
+    for notice in notices:
+        st.markdown(f'<div class="glass-card result-card"><div class="muted">{notice}</div></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">用户反馈</div>', unsafe_allow_html=True)
+    comments = load_comments(limit=20)
+    if comments:
+        for item in comments:
+            nickname = item.get("昵称") or item.get("nickname") or item.get("用户") or "游客"
+            content = item.get("内容") or item.get("comment") or ""
+            created_at = item.get("时间") or item.get("time") or ""
+            st.markdown(
+                f'<div class="glass-card result-card"><div class="result-title">{nickname}</div><div class="result-desc">{created_at}</div><div class="muted">{content}</div></div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("暂无公开反馈。配置 Google 表格 Lotto_Comments 后可启用真实留言墙。")
+
+    with st.expander("发布反馈", expanded=False):
+        nickname = st.text_input("昵称（可选）", key="comment_nickname")
+        content = st.text_area("内容", max_chars=120, key="comment_content")
+        if st.button("提交反馈", use_container_width=True, key="submit_comment"):
+            ok, message = submit_comment(nickname, content, choice)
+            if ok:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
+
     st.markdown('<div class="section-title">联络与说明</div>', unsafe_allow_html=True)
     st.markdown(
         f"""

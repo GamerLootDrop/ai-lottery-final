@@ -37,7 +37,7 @@ view_limit = int(view_choice)
 if not commercial_choice_enabled(choice):
     st.warning("该彩种暂不开放主流程，可后续接入自定义样本或单独规则。")
     if page == "交流大厅":
-        render_lobby()
+        render_lobby(choice)
     else:
         st.stop()
 
@@ -66,4 +66,4 @@ elif page == "手动录入":
 elif page == "公式中心":
     render_formula_section(df, choice, view_limit)
 else:
-    render_lobby()
+    render_lobby(choice)
