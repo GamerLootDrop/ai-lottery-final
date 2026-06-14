@@ -58,6 +58,8 @@ def render_dashboard(df, choice, view_limit):
 
     if cycle_report and cycle_report.get("ok"):
         st.caption(f"当前模式：{cycle_report['label']} | 样本 {cycle_report['sample_size']} 期")
+        if cycle_report.get("weekday_source"):
+            st.caption(f"星期来源：{cycle_report['weekday_source']}")
         calc_source = cycle_report["rows"].copy()
     else:
         calc_source = df.head(view_limit).copy()

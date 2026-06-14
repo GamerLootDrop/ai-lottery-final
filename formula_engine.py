@@ -10,6 +10,18 @@ import pandas as pd
 from lottery_rules import format_number, get_lottery_rules, should_zero_pad
 
 
+DRAW_WEEKDAYS = {
+    "双色球": [1, 3, 6],
+    "大乐透": [0, 2, 5],
+    "七星彩": [1, 4, 6],
+    "七乐彩": [0, 2, 4],
+    "福彩3D": [0, 1, 2, 3, 4, 5, 6],
+    "排列3": [0, 1, 2, 3, 4, 5, 6],
+    "排列5": [0, 1, 2, 3, 4, 5, 6],
+    "快乐8": [0, 1, 2, 3, 4, 5, 6],
+}
+
+
 def calculate_ac_value(nums):
     diffs = set()
     for i in range(len(nums)):
@@ -713,13 +725,16 @@ def build_cycle_filter_report(df_full, choice, mode, view_limit, target_period=N
         filtered = safe_df[safe_df["期号"].astype(str).str.endswith(target_period)].copy()
         label = f"历史同期尾号 {target_period}"
     elif mode == "星期走势":
-        if "星期" not in safe_df.columns:
-            return {
-                "ok": False,
-                "message": "当前数据源没有日期/星期字段，无法做星期走势。可后续接入带日期的数据源。",
-            }
+        weekday_source = "真实日期"
+        if "星期" not in safe_df.columns or safe_df["星期"].isna().all():
+            draw_weekdays = DRAW_WEEKDAYS.get(choice, list(range(7)))
+            sorted_issues = safe_df["期号"].astype(int).sort_values().drop_duplicates().tolist()
+            issue_week_map = {issue: draw_weekdays[idx % len(draw_weekdays)] for idx, issue in enumerate(sorted_issues)}
+            safe_df["星期"] = safe_df["期号"].astype(int).map(issue_week_map)
+            weekday_source = "期号序列推算"
         week_map = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6}
         target_week = week_map.get(weekday, weekday if weekday is not None else 0)
+        safe_df["星期"] = pd.to_numeric(safe_df["星期"], errors="coerce")
         filtered = safe_df[safe_df["星期"] == target_week].copy()
         label = f"{weekday} 独立走势"
     else:
@@ -730,8 +745,14 @@ def build_cycle_filter_report(df_full, choice, mode, view_limit, target_period=N
         return {"ok": False, "message": f"{label} 没有可用数据。"}
 
     filtered = filtered.head(view_limit)
-    numeric_cols = [c for c in filtered.columns if c != "期号"]
-    numeric_cols = [c for c in numeric_cols if pd.api.types.is_numeric_dtype(filtered[c])]
+    numeric_cols = [c for c in filtered.columns if str(c).startswith("b_")]
+    if not numeric_cols:
+        numeric_cols = [
+            c
+            for c in filtered.columns
+            if c not in ["期号", "日期", "日期_解析", "星期"]
+            and pd.api.types.is_numeric_dtype(filtered[c])
+        ]
     front_cols = numeric_cols[:count_r]
     back_cols = numeric_cols[count_r : count_r + count_b]
 
@@ -772,6 +793,7 @@ def build_cycle_filter_report(df_full, choice, mode, view_limit, target_period=N
         "sample_size": len(filtered),
         "front_rank": front_rank,
         "back_rank": back_rank,
+        "weekday_source": locals().get("weekday_source", ""),
         "sum_mean": float(sums.mean()) if len(sums) else 0,
         "span_mean": float(spans.mean()) if len(spans) else 0,
         "repeat_rate": repeat_count / len(filtered) if len(filtered) else 0,
