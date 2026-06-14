@@ -406,6 +406,102 @@ def build_probability_profile(df_view, choice, bet_count=1):
     }
 
 
+def derive_seed_combinations(df_view, choice, seed_text):
+    """Derive deterministic seed combinations from the selected real data window."""
+    pool_r, count_r, _, _ = get_lottery_rules(choice)
+    if df_view is None or df_view.empty:
+        return None
+
+    safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
+    front_cols = list(safe_df.columns[1 : 1 + count_r])
+    window_size = len(safe_df)
+
+    seed_nums = [int(n) for n in re.findall(r"\d+", seed_text or "")]
+    valid_seeds = list(dict.fromkeys([n for n in seed_nums if n in pool_r]))
+
+    flat_values = safe_df[front_cols].values.flatten().tolist()
+    flat_values = [n for n in flat_values if n in pool_r]
+    freq_counter = Counter(flat_values)
+
+    history_rows = safe_df[front_cols].values.tolist()
+    history_rows.reverse()
+    latest_state = [n for n in history_rows[-1] if n in pool_r] if history_rows else []
+    transition_counter = Counter()
+    for i in range(len(history_rows) - 1):
+        current_state = history_rows[i]
+        future_state = history_rows[i + 1]
+        for cb in current_state:
+            if cb in pool_r:
+                for fb in future_state:
+                    if fb in pool_r:
+                        transition_counter[fb] += 1 if cb in latest_state else 0
+
+    max_freq = max(freq_counter.values()) if freq_counter else 1
+    max_transition = max(transition_counter.values()) if transition_counter and max(transition_counter.values()) > 0 else 1
+
+    score_rows = []
+    for num in pool_r:
+        freq = freq_counter.get(num, 0)
+        omission = 0
+        for _, row in safe_df.iterrows():
+            if num in [int(row[col]) for col in front_cols]:
+                break
+            omission += 1
+
+        freq_score = freq / max_freq
+        omission_score = omission / max(window_size, 1)
+        transition_score = transition_counter.get(num, 0) / max_transition
+        seed_bonus = 1.2 if num in valid_seeds else 0
+        score = freq_score * 2.4 + omission_score * 0.8 + transition_score * 1.4 + seed_bonus
+
+        score_rows.append(
+            {
+                "号码": num,
+                "频次": freq,
+                "遗漏": omission,
+                "转移": transition_counter.get(num, 0),
+                "种子": "是" if num in valid_seeds else "否",
+                "得分": score,
+            }
+        )
+
+    ranked = sorted(score_rows, key=lambda x: (x["得分"], x["转移"], x["频次"], x["遗漏"]), reverse=True)
+
+    def pick(count):
+        selected = []
+        for n in valid_seeds:
+            if n not in selected and n in pool_r:
+                selected.append(n)
+            if len(selected) >= count:
+                return sorted(selected)
+        for row in ranked:
+            if row["号码"] not in selected:
+                selected.append(row["号码"])
+            if len(selected) >= count:
+                return sorted(selected)
+        return sorted(selected)
+
+    core_count = 1
+    compact_count = min(3, count_r)
+    standard_count = count_r
+    expanded_count = min(len(pool_r), count_r + 2)
+
+    core = pick(core_count)
+    compact = pick(compact_count)
+    standard = pick(standard_count)
+    expanded = pick(expanded_count)
+
+    return {
+        "valid_seeds": valid_seeds,
+        "core": core,
+        "compact": compact,
+        "standard": standard,
+        "expanded": expanded,
+        "score_rows": ranked,
+        "window_size": window_size,
+    }
+
+
 def scan_advanced_patterns(df_slice, df_full, is_dlt):
     front_cols = ["前1", "前2", "前3", "前4", "前5"] if is_dlt else ["前1", "前2", "前3", "前4", "前5", "前6"]
     repeat_count = 0

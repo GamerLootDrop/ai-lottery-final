@@ -11,6 +11,7 @@ from formula_engine import (
     build_probability_profile,
     calculate_bets,
     calculate_frequencies,
+    derive_seed_combinations,
     get_advanced_predictions,
     get_basic_predictions,
     run_tactical_manual_analysis,
@@ -152,6 +153,28 @@ def render_formula_section(df, choice, view_limit):
             back_df = pd.DataFrame(profile["back_summary"][:8]).copy()
             back_df["号码"] = back_df["号码"].map(lambda x: format_number(x, choice))
             st.dataframe(back_df, use_container_width=True, hide_index=True)
+
+    st.markdown('<div class="section-title">种子号衍生</div>', unsafe_allow_html=True)
+    seed_text = st.text_input("输入心水种子号", placeholder="例如：06 18 23", key=f"seed_text_{choice}")
+    if st.button("执行种子衍生", use_container_width=True, key=f"seed_btn_{choice}"):
+        st.session_state[f"seed_result_{choice}"] = derive_seed_combinations(df.head(view_limit), choice, seed_text)
+
+    seed_result = st.session_state.get(f"seed_result_{choice}")
+    if seed_result:
+        if seed_result["valid_seeds"]:
+            st.caption("有效种子：" + " ".join(format_number(n, choice) for n in seed_result["valid_seeds"]))
+        else:
+            st.caption("未检测到有效种子，将按当前窗口模型自动推导。")
+
+        render_prediction_card("核心胆码", "种子权重、频次、遗漏与转移得分交叉后取 1 位。", seed_result["core"], [], choice)
+        render_prediction_card("精简组合", "适合小范围试探的三位骨架。", seed_result["compact"], [], choice)
+        render_prediction_card("标准组合", "按当前彩种前区数量输出。", seed_result["standard"], [], choice)
+        render_prediction_card("扩容复式", "标准组基础上增加两个覆盖位。", seed_result["expanded"], [], choice, tone="accent")
+
+        seed_df = pd.DataFrame(seed_result["score_rows"][:12]).copy()
+        seed_df["号码"] = seed_df["号码"].map(lambda x: format_number(x, choice))
+        seed_df["得分"] = seed_df["得分"].map(lambda x: f"{x:.4f}")
+        st.dataframe(seed_df, use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">高阶公式</div>', unsafe_allow_html=True)
     if not st.session_state.get("vip_unlocked"):
