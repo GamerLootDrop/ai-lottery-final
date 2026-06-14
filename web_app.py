@@ -2,10 +2,25 @@ import streamlit as st
 
 from app_sections import render_dashboard, render_formula_section, render_lobby, render_tactical_section
 from auth import init_auth_state, restore_auth_from_query
-from components import render_access_banner, render_disclaimer, render_topbar
+from components import render_access_banner, render_topbar
 from data_fetch import build_synced_dataframe, find_lottery_file, load_full_data, save_synced_dataframe
 from lottery_rules import commercial_choice_enabled
 from ui_styles import inject_styles
+
+
+def render_disclaimer():
+    st.markdown(
+        """
+        <div class="disclaimer-card">
+          <div class="result-title">免责声明</div>
+          <div class="muted">
+            本工具仅基于历史公开开奖数据、统计模型和结构公式进行样本分析展示，不承诺、保证或暗示任何中奖结果，
+            不构成投注建议、投资建议或收益承诺。彩票具有随机性和不确定性，请理性参与，独立判断，风险自担。
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 st.set_page_config(page_title="高阶公式终端", page_icon="🎯", layout="wide")
