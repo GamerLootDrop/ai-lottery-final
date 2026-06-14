@@ -55,6 +55,43 @@ TACTICAL_CSS = """
   font-size: 20px;
   font-weight: 800;
   letter-spacing: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  background: rgba(19, 19, 19, 0.78);
+}
+
+.topbar-side {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding-left: 12px;
+  border: 1px solid var(--panel-border);
+  border-right: 0;
+  border-radius: 16px 0 0 16px;
+  background: rgba(19, 19, 19, 0.78);
+}
+
+[data-testid="stHorizontalBlock"]:has(.topbar-side) {
+  gap: 0 !important;
+  margin-bottom: 12px;
+}
+
+[data-testid="stHorizontalBlock"]:has(.topbar-side) .stButton > button {
+  height: 56px;
+  min-height: 56px;
+  border-radius: 0 16px 16px 0;
+  color: var(--muted);
+  background: rgba(19, 19, 19, 0.78);
+  border: 1px solid var(--panel-border);
+  border-left: 0;
+  font-weight: 700;
 }
 
 .glass-card {
@@ -276,6 +313,14 @@ TACTICAL_CSS = """
   font-size: 12px;
 }
 
+.disclaimer-card {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid rgba(255, 180, 165, 0.18);
+  border-radius: 14px;
+  background: rgba(19, 19, 19, 0.72);
+}
+
 .bottom-nav {
   position: sticky;
   bottom: 8px;
@@ -393,9 +438,25 @@ TACTICAL_CSS = """
   }
   .topbar-title {
     font-size: 17px;
+    height: 42px;
   }
   .topbar .muted {
     font-size: 11px;
+  }
+  .topbar-side {
+    height: 42px;
+    padding-left: 9px;
+    border-radius: 10px 0 0 10px;
+    font-size: 11px;
+  }
+  [data-testid="stHorizontalBlock"]:has(.topbar-side) {
+    margin-bottom: 6px;
+  }
+  [data-testid="stHorizontalBlock"]:has(.topbar-side) .stButton > button {
+    height: 42px;
+    min-height: 42px;
+    border-radius: 0 10px 10px 0;
+    font-size: 12px;
   }
   .glass-card {
     border-radius: 12px;
@@ -486,6 +547,11 @@ TACTICAL_CSS = """
     min-height: 28px;
     padding: 5px 8px;
     font-size: 11px;
+  }
+  .disclaimer-card {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
   }
   .small-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));

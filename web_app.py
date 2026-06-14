@@ -2,7 +2,7 @@ import streamlit as st
 
 from app_sections import render_dashboard, render_formula_section, render_lobby, render_tactical_section
 from auth import init_auth_state, restore_auth_from_query
-from components import render_access_banner, render_topbar
+from components import render_access_banner, render_disclaimer, render_topbar
 from data_fetch import build_synced_dataframe, find_lottery_file, load_full_data, save_synced_dataframe
 from lottery_rules import commercial_choice_enabled
 from ui_styles import inject_styles
@@ -68,3 +68,5 @@ elif page == "公式中心":
     render_formula_section(df, choice, view_limit)
 else:
     render_lobby(choice)
+
+render_disclaimer()

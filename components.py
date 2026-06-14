@@ -5,8 +5,67 @@ from lottery_rules import format_number
 
 
 def render_topbar(title):
+    left, mid, right = st.columns([0.9, 1.5, 0.7])
+    with left:
+        st.markdown('<div class="topbar-side">战术中控</div>', unsafe_allow_html=True)
+    with mid:
+        st.markdown(f'<div class="topbar-title">{title}</div>', unsafe_allow_html=True)
+    with right:
+        if st.button("设置", use_container_width=True, key="open_settings"):
+            st.session_state["show_settings"] = True
+    render_settings_dialog()
+
+
+def render_settings_dialog():
+    if not st.session_state.get("show_settings"):
+        return
+
+    dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
+
+    def _settings_content():
+        days_left = st.session_state.get("days_left", "未知")
+        if st.session_state.get("vip_unlocked"):
+            st.success(f"当前权限：高阶版，剩余 {days_left} 天。")
+        else:
+            st.info("当前权限：基础版。高阶公式、手动样本和组合压缩需授权。")
+        st.markdown("服务微信：")
+        st.code(MY_WECHAT_ID, language="text")
+        with st.expander("免责声明", expanded=True):
+            st.write(
+                "本工具仅基于历史公开开奖数据、统计模型和结构公式进行样本分析展示，"
+                "不承诺、保证或暗示任何中奖结果，不构成投注建议、投资建议或收益承诺。"
+                "彩票具有随机性和不确定性，请理性参与，独立判断，风险自担。"
+            )
+        if st.session_state.get("vip_unlocked") and st.button("退出授权", use_container_width=True, key="settings_logout"):
+            logout()
+            st.session_state["show_settings"] = False
+            st.rerun()
+        if st.button("关闭", use_container_width=True, key="settings_close"):
+            st.session_state["show_settings"] = False
+            st.rerun()
+
+    if dialog:
+        @dialog("设置")
+        def _settings_dialog():
+            _settings_content()
+
+        _settings_dialog()
+    else:
+        with st.expander("设置", expanded=True):
+            _settings_content()
+
+
+def render_disclaimer():
     st.markdown(
-        f'<div class="topbar"><div class="muted">战术中控</div><div class="topbar-title">{title}</div><div class="muted">设置</div></div>',
+        """
+        <div class="disclaimer-card">
+          <div class="result-title">免责声明</div>
+          <div class="muted">
+            本工具仅基于历史公开开奖数据、统计模型和结构公式进行样本分析展示，不承诺、保证或暗示任何中奖结果，
+            不构成投注建议、投资建议或收益承诺。彩票具有随机性和不确定性，请理性参与，独立判断，风险自担。
+          </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
