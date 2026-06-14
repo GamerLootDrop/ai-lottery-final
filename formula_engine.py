@@ -287,6 +287,18 @@ def _safe_div(numerator, denominator, default=0):
     return numerator / denominator if denominator else default
 
 
+def _draw_columns(df, count_r, count_b=0):
+    ball_cols = [c for c in df.columns if str(c).startswith("b_")]
+    if len(ball_cols) >= count_r + count_b:
+        return ball_cols[:count_r], ball_cols[count_r : count_r + count_b]
+    numeric_cols = [
+        c
+        for c in df.columns
+        if c not in ["期号", "日期", "日期_解析", "星期"] and pd.api.types.is_numeric_dtype(df[c])
+    ]
+    return numeric_cols[:count_r], numeric_cols[count_r : count_r + count_b]
+
+
 def _odd_even_distribution_probability(pool, draw_count, observed_odd_count):
     odd_total = sum(1 for n in pool if n % 2 == 1)
     even_total = len(pool) - odd_total
@@ -308,9 +320,8 @@ def build_probability_profile(df_view, choice, bet_count=1):
         return None
 
     safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
-    draw_cols = list(safe_df.columns[1 : 1 + count_r + count_b])
-    front_cols = list(safe_df.columns[1 : 1 + count_r])
-    back_cols = list(safe_df.columns[1 + count_r : 1 + count_r + count_b])
+    front_cols, back_cols = _draw_columns(safe_df, count_r, count_b)
+    draw_cols = front_cols + back_cols
     window_size = len(safe_df)
 
     sums = safe_df[draw_cols].sum(axis=1)
@@ -414,7 +425,7 @@ def derive_seed_combinations(df_view, choice, seed_text):
         return None
 
     safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
-    front_cols = list(safe_df.columns[1 : 1 + count_r])
+    front_cols, _ = _draw_columns(safe_df, count_r, 0)
     window_size = len(safe_df)
 
     seed_nums = [int(n) for n in re.findall(r"\d+", seed_text or "")]
@@ -609,7 +620,7 @@ def get_012_route_stats(df_view, choice):
         return None
 
     safe_df = df_view.apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
-    front_cols = list(safe_df.columns[1 : 1 + count_r])
+    front_cols, _ = _draw_columns(safe_df, count_r, 0)
 
     actual_counter = Counter()
     for _, row in safe_df.iterrows():

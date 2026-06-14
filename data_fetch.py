@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from datetime import datetime
 
 import pandas as pd
 import requests
@@ -8,6 +9,9 @@ import streamlit as st
 from bs4 import BeautifulSoup
 
 from lottery_rules import LOTTERY_FILES, WEB_GAME_CODES
+
+FETCH_LOG_FILE = "fetch_log.csv"
+FETCH_COOLDOWN_SECONDS = 1800
 
 
 def find_lottery_file(choice, base_dir="."):
@@ -20,6 +24,50 @@ def find_lottery_file(choice, base_dir="."):
     return next((f for f in all_files if "_synced" in f), all_files[0] if all_files else None)
 
 
+def _read_fetch_log():
+    if not os.path.exists(FETCH_LOG_FILE):
+        return {}
+    try:
+        df = pd.read_csv(FETCH_LOG_FILE)
+        return {str(row["choice"]): row.to_dict() for _, row in df.iterrows()}
+    except Exception:
+        return {}
+
+
+def _write_fetch_log(log):
+    rows = list(log.values())
+    if rows:
+        pd.DataFrame(rows).to_csv(FETCH_LOG_FILE, index=False, encoding="utf-8-sig")
+
+
+def should_skip_fetch(choice, local_latest_issue):
+    log = _read_fetch_log()
+    row = log.get(choice)
+    if not row:
+        return False, ""
+    try:
+        last_ts = float(row.get("last_ts", 0))
+        last_issue = str(row.get("latest_issue", ""))
+        age = time.time() - last_ts
+        if last_issue == str(local_latest_issue) and age < FETCH_COOLDOWN_SECONDS:
+            remain_min = int((FETCH_COOLDOWN_SECONDS - age) / 60) + 1
+            return True, f"已有用户刚检查过最新数据，当前期号 {local_latest_issue}，{remain_min} 分钟内不重复抓取。"
+    except Exception:
+        pass
+    return False, ""
+
+
+def record_fetch(choice, latest_issue):
+    log = _read_fetch_log()
+    log[choice] = {
+        "choice": choice,
+        "latest_issue": str(latest_issue),
+        "last_ts": time.time(),
+        "last_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    _write_fetch_log(log)
+
+
 @st.cache_data
 def load_full_data(file_path, choice):
     try:
@@ -28,6 +76,7 @@ def load_full_data(file_path, choice):
         q_col = next((c for c in raw_df.columns if "期" in c or "NO" in c.upper()), raw_df.columns[0])
         raw_df[q_col] = pd.to_numeric(raw_df[q_col], errors="coerce")
         raw_df = raw_df.dropna(subset=[q_col])
+        date_col = next((c for c in raw_df.columns if "日期" in c or "date" in c.lower()), None)
 
         limits = {
             "双色球": 7,
@@ -50,14 +99,21 @@ def load_full_data(file_path, choice):
             if len(ball_cols) == max_balls:
                 break
 
-        clean_df = raw_df[[q_col] + ball_cols].copy()
-        new_names = ["期号"] + [f"b_{i + 1}" for i in range(len(ball_cols))]
-        clean_df.columns = new_names
-        for c in new_names:
-            clean_df[c] = pd.to_numeric(clean_df[c], errors="coerce").fillna(0).astype(int)
+        draw_names = [f"b_{i + 1}" for i in range(len(ball_cols))]
+        draw_df = raw_df[[q_col] + ball_cols].copy()
+        draw_df.columns = ["期号"] + draw_names
+        for c in ["期号"] + draw_names:
+            draw_df[c] = pd.to_numeric(draw_df[c], errors="coerce").fillna(0).astype(int)
+
+        if date_col:
+            draw_df["日期"] = raw_df[date_col].astype(str)
+            draw_df["日期_解析"] = pd.to_datetime(draw_df["日期"], errors="coerce")
+            draw_df["星期"] = draw_df["日期_解析"].dt.dayofweek
 
         needs_zero = choice in ["双色球", "大乐透", "快乐8"]
-        return clean_df.sort_values("期号", ascending=False), "期号", new_names[1:], needs_zero, file_path
+        ordered_cols = ["期号"] + draw_names + [c for c in ["日期", "日期_解析", "星期"] if c in draw_df.columns]
+        clean_df = draw_df[ordered_cols].sort_values("期号", ascending=False)
+        return clean_df, "期号", draw_names, needs_zero, file_path
     except Exception:
         return None, None, None, None, None
 
@@ -85,12 +141,19 @@ def fetch_from_web(game_code, choice, d_cols_len, limit=50):
                     continue
                 issue_val = int("20" + iss_str[:10]) if len(iss_str) == 5 else int(iss_str[:10])
 
+                date_str = ""
+                for td in reversed(tds):
+                    txt = td.get_text(strip=True)
+                    if re.search(r"\d{4}-\d{2}-\d{2}", txt):
+                        date_str = re.search(r"\d{4}-\d{2}-\d{2}", txt).group(0)
+                        break
+
                 rest_text = " ".join([td.get_text(separator=" ") for td in tds[1:]])
                 balls = [int(n) for n in re.findall(r"\d+", rest_text)]
                 balls = [n for n in balls if 0 <= n <= 81][:d_cols_len]
 
                 if len(balls) == d_cols_len:
-                    web_rows.append({"issue": issue_val, "balls": balls})
+                    web_rows.append({"issue": issue_val, "date": date_str, "balls": balls})
             if web_rows:
                 break
         except Exception:
@@ -99,37 +162,54 @@ def fetch_from_web(game_code, choice, d_cols_len, limit=50):
 
 
 def build_synced_dataframe(df, q_col, d_cols, choice):
+    local_latest_issue = str(df.iloc[0][q_col])
+    skip, skip_message = should_skip_fetch(choice, local_latest_issue)
+    if skip:
+        return df, skip_message
+
     web_data = fetch_from_web(WEB_GAME_CODES.get(choice, "ssq"), choice, len(d_cols))
     if not web_data:
         return None, "抓取失败，请检查网络或稍后再试。"
 
     latest_web_issue = str(web_data[0]["issue"])
-    latest_local_issue = str(df.iloc[0][q_col])
-    if latest_web_issue == latest_local_issue:
-        return df, f"当前已是全网最新数据，期号 {latest_local_issue}。"
+    if latest_web_issue == local_latest_issue:
+        record_fetch(choice, local_latest_issue)
+        return df, f"当前已是全网最新数据，期号 {local_latest_issue}。"
 
     clean_web_rows = []
     for item in web_data:
         row_dict = {"期号": item["issue"]}
+        if item.get("date"):
+            row_dict["日期"] = item["date"]
         for i, col in enumerate(d_cols):
             if i < len(item["balls"]):
                 row_dict[col] = item["balls"][i]
         clean_web_rows.append(row_dict)
 
-    web_df = pd.DataFrame(clean_web_rows).astype("int64")
+    web_df = pd.DataFrame(clean_web_rows)
+    for col in ["期号"] + d_cols:
+        if col in web_df.columns:
+            web_df[col] = pd.to_numeric(web_df[col], errors="coerce").fillna(0).astype("int64")
     updated = (
         pd.concat([web_df, df], ignore_index=True)
         .drop_duplicates(subset=[q_col], keep="first")
         .sort_values(q_col, ascending=False)
         .head(2000)
     )
+    if "日期" in updated.columns:
+        updated["日期_解析"] = pd.to_datetime(updated["日期"], errors="coerce")
+        updated["星期"] = updated["日期_解析"].dt.dayofweek
+    record_fetch(choice, latest_web_issue)
     return updated, f"同步成功，已抓取 {len(clean_web_rows)} 条网页数据。"
 
 
 def save_synced_dataframe(updated, file_path):
     save_path = file_path if file_path.endswith(".csv") else file_path.replace(".xls", "_synced.csv")
     save_path = save_path.replace(".xlsx", "_synced.csv")
-    updated.to_csv(save_path, index=False, encoding="utf-8-sig")
+    export_df = updated.copy()
+    keep_cols = ["期号"] + [c for c in export_df.columns if c.startswith("b_")] + [c for c in ["日期"] if c in export_df.columns]
+    export_df = export_df[keep_cols]
+    export_df.to_csv(save_path, index=False, encoding="utf-8-sig")
     st.cache_data.clear()
     return save_path
 
@@ -258,4 +338,3 @@ def load_cloud_or_local_data(lottery_code, uploaded_file=None, target_mode="默�
         df_final["星期"] = df_final["日期_解析"].dt.dayofweek
 
     return df_final, new_count
-
