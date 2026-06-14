@@ -655,6 +655,94 @@ def get_012_route_stats(df_view, choice):
     }
 
 
+def build_cycle_filter_report(df_full, choice, mode, view_limit, target_period=None, weekday=None):
+    """Build same-period / weekday / recent reports from real historical rows."""
+    if df_full is None or df_full.empty:
+        return None
+
+    pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
+    safe_df = df_full.copy()
+    if "期号" not in safe_df.columns:
+        return None
+
+    if mode == "历史同期":
+        latest_issue = str(int(safe_df.iloc[0]["期号"]))
+        if target_period is None:
+            current_suffix = latest_issue[-3:] if len(latest_issue) >= 3 else latest_issue
+            try:
+                target_period = f"{int(current_suffix) + 1:03d}"
+            except Exception:
+                target_period = current_suffix
+        target_period = str(target_period).zfill(3)
+        filtered = safe_df[safe_df["期号"].astype(str).str.endswith(target_period)].copy()
+        label = f"历史同期尾号 {target_period}"
+    elif mode == "星期走势":
+        if "星期" not in safe_df.columns:
+            return {
+                "ok": False,
+                "message": "当前数据源没有日期/星期字段，无法做星期走势。可后续接入带日期的数据源。",
+            }
+        week_map = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6}
+        target_week = week_map.get(weekday, weekday if weekday is not None else 0)
+        filtered = safe_df[safe_df["星期"] == target_week].copy()
+        label = f"{weekday} 独立走势"
+    else:
+        filtered = safe_df.head(view_limit).copy()
+        label = f"近期连贯 {view_limit} 期"
+
+    if filtered.empty:
+        return {"ok": False, "message": f"{label} 没有可用数据。"}
+
+    filtered = filtered.head(view_limit)
+    numeric_cols = [c for c in filtered.columns if c != "期号"]
+    numeric_cols = [c for c in numeric_cols if pd.api.types.is_numeric_dtype(filtered[c])]
+    front_cols = numeric_cols[:count_r]
+    back_cols = numeric_cols[count_r : count_r + count_b]
+
+    if len(front_cols) < count_r:
+        return {"ok": False, "message": "当前数据列不足，无法计算周期过滤。"}
+
+    front_values = filtered[front_cols].apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int).values.flatten().tolist()
+    front_values = [n for n in front_values if n in pool_r]
+    front_counter = Counter(front_values)
+    front_rank = [{"号码": n, "频次": front_counter.get(n, 0)} for n in pool_r]
+    front_rank.sort(key=lambda x: (x["频次"], -x["号码"]), reverse=True)
+
+    back_rank = []
+    if count_b > 0 and len(back_cols) >= count_b:
+        back_values = filtered[back_cols].apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int).values.flatten().tolist()
+        back_values = [n for n in back_values if n in pool_b]
+        back_counter = Counter(back_values)
+        back_rank = [{"号码": n, "频次": back_counter.get(n, 0)} for n in pool_b]
+        back_rank.sort(key=lambda x: (x["频次"], -x["号码"]), reverse=True)
+
+    sums = filtered[front_cols].sum(axis=1)
+    spans = filtered[front_cols].max(axis=1) - filtered[front_cols].min(axis=1)
+    consecutive_count = 0
+    repeat_count = 0
+    for idx, (_, row) in enumerate(filtered.iterrows()):
+        nums = sorted([int(row[col]) for col in front_cols])
+        if any(nums[i + 1] - nums[i] == 1 for i in range(len(nums) - 1)):
+            consecutive_count += 1
+        if idx + 1 < len(filtered):
+            prev_nums = set(int(filtered.iloc[idx + 1][col]) for col in front_cols)
+            if set(nums).intersection(prev_nums):
+                repeat_count += 1
+
+    return {
+        "ok": True,
+        "label": label,
+        "rows": filtered,
+        "sample_size": len(filtered),
+        "front_rank": front_rank,
+        "back_rank": back_rank,
+        "sum_mean": float(sums.mean()) if len(sums) else 0,
+        "span_mean": float(spans.mean()) if len(spans) else 0,
+        "repeat_rate": repeat_count / len(filtered) if len(filtered) else 0,
+        "consecutive_rate": consecutive_count / len(filtered) if len(filtered) else 0,
+    }
+
+
 def scan_advanced_patterns(df_slice, df_full, is_dlt):
     front_cols = ["前1", "前2", "前3", "前4", "前5"] if is_dlt else ["前1", "前2", "前3", "前4", "前5", "前6"]
     repeat_count = 0

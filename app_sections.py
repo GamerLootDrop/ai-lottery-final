@@ -9,6 +9,7 @@ from components import render_bottom_nav, render_hero_card, render_metric_cards,
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
 from formula_engine import (
     build_probability_profile,
+    build_cycle_filter_report,
     calculate_bets,
     calculate_frequencies,
     derive_seed_combinations,
@@ -27,16 +28,45 @@ def render_dashboard(df, choice, view_limit):
         st.warning("当前没有可用数据。")
         return
 
-    d_cols = [c for c in df.columns if c != "期号"]
+    filter_mode = st.radio("分析维度", ["近期连贯", "历史同期", "星期走势"], horizontal=True)
+    target_period = None
+    weekday = None
+    if filter_mode == "历史同期":
+        latest_issue = str(int(df.iloc[0]["期号"]))
+        default_target = int(latest_issue[-3:]) + 1 if len(latest_issue) >= 3 else 1
+        target_period = st.number_input("目标同期尾号", min_value=1, max_value=160, value=default_target, step=1)
+    elif filter_mode == "星期走势":
+        weekday_options = ["周一", "周三", "周六"] if choice == "大乐透" else ["周二", "周四", "周日"]
+        weekday = st.selectbox("开奖星期", weekday_options)
+
+    cycle_report = build_cycle_filter_report(
+        df,
+        choice,
+        mode=filter_mode,
+        view_limit=view_limit,
+        target_period=f"{int(target_period):03d}" if target_period else None,
+        weekday=weekday,
+    )
+    if cycle_report and not cycle_report.get("ok"):
+        st.warning(cycle_report["message"])
+        return
+
+    if cycle_report and cycle_report.get("ok"):
+        st.caption(f"当前模式：{cycle_report['label']} | 样本 {cycle_report['sample_size']} 期")
+        calc_source = cycle_report["rows"].copy()
+    else:
+        calc_source = df.head(view_limit).copy()
+
+    d_cols = [c for c in calc_source.columns if c != "期号"]
     red_nums, blue_nums = [], []
     _, count_r, _, count_b = get_lottery_rules(choice)
-    latest = df.iloc[0]
+    latest = calc_source.iloc[0]
     values = [int(latest[col]) for col in d_cols[: count_r + count_b]]
     red_nums = values[:count_r]
     blue_nums = values[count_r:]
     render_hero_card(choice, f"{choice} #{int(latest['期号'])}", "最新样本已载入", red_nums, blue_nums)
 
-    calc_df = df.head(view_limit).copy()
+    calc_df = calc_source.head(view_limit).copy()
     calc_df["和值"] = calc_df[d_cols].sum(axis=1)
     calc_df["跨度"] = calc_df[d_cols].max(axis=1) - calc_df[d_cols].min(axis=1)
 
@@ -73,6 +103,12 @@ def render_dashboard(df, choice, view_limit):
     spread = int((calc_df["和值"].max() - calc_df["和值"].min()) / 2) if len(calc_df) > 1 else 0
     repeat_rate = f"{(repeat_count / len(calc_df) * 100):.0f}%" if len(calc_df) else "0%"
     consecutive_rate = f"{(consecutive_count / len(calc_df) * 100):.0f}%" if len(calc_df) else "0%"
+    if cycle_report and cycle_report.get("ok"):
+        mean_value = int(cycle_report["sum_mean"])
+        spread = int(cycle_report["span_mean"])
+        repeat_rate = f"{cycle_report['repeat_rate'] * 100:.0f}%"
+        consecutive_rate = f"{cycle_report['consecutive_rate'] * 100:.0f}%"
+
     metrics = [
         {"label": "均值和值", "value": mean_value, "hint": f"取样窗口 {view_limit} 期", "color": "#81cfff"},
         {"label": "平均偏差", "value": spread, "hint": "波动宽度估算", "color": "#ff8a73"},
@@ -89,7 +125,7 @@ def render_dashboard(df, choice, view_limit):
     st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">历史样本</div>', unsafe_allow_html=True)
-    show_df = df.head(min(view_limit, 12)).copy()
+    show_df = calc_source.head(min(view_limit, 12)).copy()
     for col in d_cols:
         show_df[col] = show_df[col].map(lambda x: format_number(x, choice))
     st.dataframe(show_df, use_container_width=True, hide_index=True)
