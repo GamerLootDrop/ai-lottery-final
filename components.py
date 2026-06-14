@@ -81,8 +81,29 @@ def render_access_banner():
         unsafe_allow_html=True,
     )
     if st.button("解锁高阶功能", use_container_width=True, key="top_unlock_go"):
+        st.session_state["show_top_unlock"] = True
         st.session_state["page"] = "公式中心"
-        st.rerun()
+    render_top_unlock_dialog()
+
+
+def render_top_unlock_dialog():
+    if not st.session_state.get("show_top_unlock"):
+        return
+
+    dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
+    if dialog:
+        @dialog("快速解锁高阶功能")
+        def _unlock_dialog():
+            render_unlock_panel("快速解锁高阶功能", key_prefix="top")
+            if st.button("暂不解锁", use_container_width=True, key="close_top_unlock"):
+                st.session_state["show_top_unlock"] = False
+                st.rerun()
+
+        _unlock_dialog()
+        return
+
+    if st.session_state.get("show_top_unlock"):
+        render_unlock_panel("快速解锁高阶功能", key_prefix="top")
 
 
 def render_unlock_panel(title="高阶权限未解锁", key_prefix="vip"):
@@ -127,6 +148,7 @@ def render_unlock_panel(title="高阶权限未解锁", key_prefix="vip"):
         ok, message = unlock_with_code(code)
         if ok:
             st.session_state[f"{key_prefix}_auth_message"] = ("success", f"激活成功，剩余 {message} 天。")
+            st.session_state["show_top_unlock"] = False
             st.rerun()
         else:
             st.session_state[f"{key_prefix}_auth_message"] = ("error", f"{message}。如需开通或续费，请添加微信 {MY_WECHAT_ID}。")
