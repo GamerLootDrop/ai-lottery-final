@@ -263,14 +263,39 @@ def parse_red_blue_from_text(text, is_dlt=True):
 
 
 def calculate_frequencies(df, is_dlt=True):
+    if df is None or df.empty:
+        return Counter(), Counter()
+
     if is_dlt:
-        front_nums = df[["前1", "前2", "前3", "前4", "前5"]].values.flatten()
-        back_nums = df[["后1", "后2"]].values.flatten()
+        default_front_cols = ["前1", "前2", "前3", "前4", "前5"]
+        default_back_cols = ["后1", "后2"]
         front_max, back_max = 35, 12
     else:
-        front_nums = df[["前1", "前2", "前3", "前4", "前5", "前6"]].values.flatten()
-        back_nums = df[["后1"]].values.flatten()
+        default_front_cols = ["前1", "前2", "前3", "前4", "前5", "前6"]
+        default_back_cols = ["后1"]
         front_max, back_max = 33, 16
+
+    if all(col in df.columns for col in default_front_cols):
+        front_cols = default_front_cols
+        back_cols = [col for col in default_back_cols if col in df.columns]
+    else:
+        count_r = 5 if is_dlt else 6
+        count_b = 2 if is_dlt else 1
+        front_cols, back_cols = _draw_columns(df, count_r, count_b)
+
+    if not front_cols:
+        return Counter(), Counter()
+
+    front_df = df[front_cols].apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
+    front_nums = front_df.values.flatten()
+    if back_cols:
+        back_df = df[back_cols].apply(pd.to_numeric, errors="coerce").fillna(-1).astype(int)
+        back_nums = back_df.values.flatten()
+    else:
+        back_nums = []
+
+    front_nums = [int(n) for n in front_nums if 1 <= int(n) <= front_max]
+    back_nums = [int(n) for n in back_nums if 1 <= int(n) <= back_max]
     front_counts, back_counts = Counter(front_nums), Counter(back_nums)
     for i in range(1, front_max + 1):
         front_counts.setdefault(i, 0)
