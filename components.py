@@ -52,8 +52,7 @@ def render_access_banner():
             f"""
             <div class="access-strip access-compact">
               <div>
-                <div class="result-title">高阶版已解锁</div>
-                <div class="result-desc">剩余 {days_left} 天，AC12 / 马尔科夫链 / 样本反向已开放。</div>
+                <div class="result-title">高阶版已解锁 · 剩余 {days_left} 天</div>
               </div>
               <div class="access-badge">已解锁</div>
             </div>
