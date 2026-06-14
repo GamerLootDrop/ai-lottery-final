@@ -25,7 +25,7 @@ def render_dashboard(df, choice, view_limit):
 
     d_cols = [c for c in df.columns if c != "期号"]
     red_nums, blue_nums = [], []
-    pool_r, count_r, _, count_b = get_lottery_rules(choice)
+    _, count_r, _, count_b = get_lottery_rules(choice)
     latest = df.iloc[0]
     values = [int(latest[col]) for col in d_cols[: count_r + count_b]]
     red_nums = values[:count_r]
@@ -34,13 +34,55 @@ def render_dashboard(df, choice, view_limit):
 
     calc_df = df.head(view_limit).copy()
     calc_df["和值"] = calc_df[d_cols].sum(axis=1)
+    calc_df["跨度"] = calc_df[d_cols].max(axis=1) - calc_df[d_cols].min(axis=1)
+
+    repeat_count, consecutive_count = 0, 0
+    detail_rows = []
+    for idx, (_, row) in enumerate(calc_df.iterrows()):
+        nums = sorted([int(row[col]) for col in d_cols])
+        odd_count = sum(1 for n in nums if n % 2 == 1)
+        even_count = len(nums) - odd_count
+        consecutive = any(nums[i + 1] - nums[i] == 1 for i in range(len(nums) - 1))
+        if consecutive:
+            consecutive_count += 1
+
+        repeat_status = "无重号"
+        if idx + 1 < len(calc_df):
+            prev_nums = set(int(calc_df.iloc[idx + 1][col]) for col in d_cols)
+            intersects = sorted(set(nums).intersection(prev_nums))
+            if intersects:
+                repeat_count += 1
+                repeat_status = "重号 " + " ".join(format_number(x, choice) for x in intersects)
+
+        detail_rows.append(
+            {
+                "期号": f"第 {int(row['期号'])} 期",
+                "和值": int(row["和值"]),
+                "跨度": int(row["跨度"]),
+                "奇偶比": f"{odd_count}:{even_count}",
+                "连号": "有" if consecutive else "无",
+                "重号": repeat_status,
+            }
+        )
+
     mean_value = int(calc_df["和值"].mean()) if not calc_df.empty else 0
     spread = int((calc_df["和值"].max() - calc_df["和值"].min()) / 2) if len(calc_df) > 1 else 0
+    repeat_rate = f"{(repeat_count / len(calc_df) * 100):.0f}%" if len(calc_df) else "0%"
+    consecutive_rate = f"{(consecutive_count / len(calc_df) * 100):.0f}%" if len(calc_df) else "0%"
     metrics = [
         {"label": "均值和值", "value": mean_value, "hint": f"取样窗口 {view_limit} 期", "color": "#81cfff"},
         {"label": "平均偏差", "value": spread, "hint": "波动宽度估算", "color": "#ff8a73"},
+        {"label": "历史重号率", "value": repeat_rate, "hint": "与上一期重复占比", "color": "#7dffa2"},
+        {"label": "历史连号率", "value": consecutive_rate, "hint": "连号出现频率", "color": "#ffb4a5"},
     ]
     render_metric_cards(metrics)
+
+    st.markdown('<div class="section-title">和值走势</div>', unsafe_allow_html=True)
+    chart_df = calc_df[["期号", "和值"]].sort_values(by="期号").set_index("期号")
+    st.line_chart(chart_df, use_container_width=True)
+
+    st.markdown('<div class="section-title">形态明细</div>', unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">历史样本</div>', unsafe_allow_html=True)
     show_df = df.head(min(view_limit, 12)).copy()
