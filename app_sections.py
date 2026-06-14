@@ -57,7 +57,11 @@ def render_dashboard(df, choice, view_limit):
     else:
         calc_source = df.head(view_limit).copy()
 
-    d_cols = [c for c in calc_source.columns if c != "期号"]
+    d_cols = [c for c in calc_source.columns if str(c).startswith("b_")]
+    if not d_cols:
+        d_cols = [c for c in calc_source.columns if c not in ["期号", "日期", "日期_解析", "星期"] and pd.api.types.is_numeric_dtype(calc_source[c])]
+    for col in d_cols:
+        calc_source[col] = pd.to_numeric(calc_source[col], errors="coerce").fillna(0).astype(int)
     red_nums, blue_nums = [], []
     _, count_r, _, count_b = get_lottery_rules(choice)
     latest = calc_source.iloc[0]
