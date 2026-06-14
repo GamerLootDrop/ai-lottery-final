@@ -134,6 +134,12 @@ TACTICAL_CSS = """
     rgba(28, 27, 27, 0.9);
 }
 
+.number-separator {
+  color: var(--muted);
+  text-align: center;
+  align-self: center;
+}
+
 .orb-primary {
   color: var(--primary);
   border: 1px solid rgba(129, 207, 255, 0.45);
@@ -438,6 +444,9 @@ TACTICAL_CSS = """
   .number-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
+  }
+  .number-separator {
+    display: none;
   }
   .number-orb {
     font-size: 17px;

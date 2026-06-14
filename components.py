@@ -83,7 +83,7 @@ def render_disclaimer():
 def render_hero_card(choice, issue_text, date_text, red_nums, blue_nums):
     red_html = "".join([f'<div class="number-orb orb-primary">{format_number(n, choice)}</div>' for n in red_nums])
     blue_html = "".join([f'<div class="number-orb orb-accent">{format_number(n, choice)}</div>' for n in blue_nums])
-    sep_html = '<div class="muted" style="text-align:center;">|</div>' if blue_nums else ""
+    sep_html = '<div class="number-separator">|</div>' if blue_nums else ""
     st.markdown(
         f'<section class="glass-card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;"><div><div class="section-title" style="margin-top:0;border-left:none;padding-left:0;">最新截获</div><div class="hero-issue">{issue_text}</div><div class="hero-date">{date_text}</div></div><div class="status-pill"><span class="status-dot"></span>已核实</div></div><div style="height:12px;"></div><div class="number-row">{red_html}{sep_html}{blue_html}</div></section>',
         unsafe_allow_html=True,
