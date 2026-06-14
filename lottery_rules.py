@@ -47,9 +47,8 @@ def split_draw_numbers(row, d_cols, choice):
 
 
 def commercial_choice_enabled(choice):
-    return choice not in ["快乐8", "排列5", "七星彩"]
+    return choice in LOTTERY_FILES
 
 
 def is_dual_area(choice):
     return choice in ["双色球", "大乐透"]
-
