@@ -48,24 +48,18 @@ def render_prediction_card(title, desc, red_nums, blue_nums, choice, tone="prima
 def render_access_banner():
     if st.session_state.get("vip_unlocked"):
         days_left = st.session_state.get("days_left", "未知")
-        col1, col2 = st.columns([2.4, 0.8])
-        with col1:
-            st.markdown(
-                f"""
-                <div class="access-strip">
-                  <div>
-                    <div class="result-title">当前权限：高阶版</div>
-                    <div class="result-desc">AC12、马尔科夫链、样本反向、组合压缩已开放；剩余 {days_left} 天。</div>
-                  </div>
-                  <div class="access-badge">已解锁</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with col2:
-            if st.button("退出授权", use_container_width=True, key="top_logout_btn"):
-                logout()
-                st.rerun()
+        st.markdown(
+            f"""
+            <div class="access-strip access-compact">
+              <div>
+                <div class="result-title">高阶版已解锁</div>
+                <div class="result-desc">剩余 {days_left} 天，AC12 / 马尔科夫链 / 样本反向已开放。</div>
+              </div>
+              <div class="access-badge">已解锁</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
     st.markdown(

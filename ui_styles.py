@@ -374,14 +374,22 @@ TACTICAL_CSS = """
 }
 
 @media (max-width: 640px) {
+  .stApp {
+    background: #0f0f0f;
+  }
+  [data-testid="stAppViewContainer"] > .main {
+    width: 100vw !important;
+  }
   .block-container {
-    padding: 0.45rem 0.7rem 5.5rem !important;
+    max-width: 100vw !important;
+    width: 100vw !important;
+    padding: 0.35rem 0.5rem 5.5rem !important;
   }
   .topbar {
-    height: 48px;
-    margin-bottom: 8px;
-    padding: 0 10px;
-    border-radius: 12px;
+    height: 44px;
+    margin-bottom: 6px;
+    padding: 0 9px;
+    border-radius: 10px;
   }
   .topbar-title {
     font-size: 17px;
@@ -447,12 +455,17 @@ TACTICAL_CSS = """
     word-break: break-all;
   }
   .access-strip {
-    align-items: flex-start;
-    flex-direction: column;
     gap: 8px;
-    margin-bottom: 8px;
-    padding: 12px;
-    border-radius: 12px;
+    margin-bottom: 7px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+  .access-strip.access-compact {
+    align-items: center;
+    flex-direction: row;
+  }
+  .access-strip.access-compact .result-desc {
+    margin-bottom: 0;
   }
   .access-badge {
     align-self: flex-start;
@@ -492,7 +505,10 @@ TACTICAL_CSS = """
     border-radius: 10px;
   }
   [data-testid="stHorizontalBlock"] {
-    gap: 0.55rem;
+    gap: 0.45rem;
+  }
+  [data-testid="stVerticalBlock"] {
+    gap: 0.35rem;
   }
   [data-testid="stDataFrame"] {
     border-radius: 10px;
