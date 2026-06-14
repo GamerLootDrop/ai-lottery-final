@@ -375,21 +375,132 @@ TACTICAL_CSS = """
 
 @media (max-width: 640px) {
   .block-container {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    padding: 0.45rem 0.7rem 5.5rem !important;
+  }
+  .topbar {
+    height: 48px;
+    margin-bottom: 8px;
+    padding: 0 10px;
+    border-radius: 12px;
+  }
+  .topbar-title {
+    font-size: 17px;
+  }
+  .topbar .muted {
+    font-size: 11px;
+  }
+  .glass-card {
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .section-title {
+    margin: 10px 0 7px;
+    font-size: 11px;
+  }
+  .hero-issue {
+    font-size: 14px;
+  }
+  .hero-date,
+  .status-pill,
+  .result-desc,
+  .metric-label,
+  .metric-hint,
+  .muted {
+    font-size: 11px;
   }
   .number-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
   }
   .number-orb {
-    font-size: 18px;
+    font-size: 17px;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .metric-card {
+    min-height: 96px;
+  }
+  .metric-value {
+    margin-top: 10px;
+    font-size: 28px;
+  }
+  .result-card {
+    margin-bottom: 9px;
+  }
+  .result-title {
+    font-size: 14px;
+  }
+  .ball-strip {
+    gap: 6px;
+  }
+  .ball-mini {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+  }
+  .code-line {
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 12px;
+    word-break: break-all;
   }
   .access-strip {
     align-items: flex-start;
     flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 12px;
+    border-radius: 12px;
   }
   .access-badge {
     align-self: flex-start;
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+  .access-chip-row {
+    gap: 6px;
+    margin: 9px 0;
+  }
+  .access-chip {
+    min-height: 28px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  .small-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .heat-box {
+    min-height: 44px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+  .stButton > button {
+    min-height: 44px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .stSelectbox [data-baseweb="select"] > div,
+  .stTextInput input,
+  .stNumberInput input {
+    min-height: 42px;
+    border-radius: 10px;
+  }
+  .stTextArea textarea {
+    border-radius: 10px;
+  }
+  [data-testid="stHorizontalBlock"] {
+    gap: 0.55rem;
+  }
+  [data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  pre {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
   }
 }
 </style>
