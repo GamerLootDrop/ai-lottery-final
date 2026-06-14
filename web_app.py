@@ -23,7 +23,7 @@ with st.container():
     with col1:
         choice = st.selectbox("选择彩种", ["双色球", "大乐透", "福彩3D", "排列3", "排列5", "七星彩", "快乐8"])
     with col2:
-        view_choice = st.selectbox("分析窗口", ["近30期", "近50期", "近100期"], index=0)
+        view_choice = st.selectbox("战术期数", [5, 10, 29, 30, 50, 100], index=3)
     with col3:
         page_options = ["数据看板", "手动录入", "公式中心", "交流大厅"]
         current_page = st.session_state.get("page", "数据看板")
@@ -32,7 +32,7 @@ with st.container():
         page = st.selectbox("页面", page_options, index=page_options.index(current_page))
         st.session_state["page"] = page
 
-view_limit = {"近30期": 30, "近50期": 50, "近100期": 100}[view_choice]
+view_limit = int(view_choice)
 
 if not commercial_choice_enabled(choice):
     st.warning("该彩种暂不开放主流程，可后续接入自定义样本或单独规则。")
