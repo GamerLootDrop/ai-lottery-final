@@ -222,6 +222,60 @@ TACTICAL_CSS = """
   font-size: 13px;
 }
 
+.access-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(129, 207, 255, 0.24);
+  background: rgba(18, 32, 38, 0.72);
+}
+
+.access-strip.locked {
+  border-color: rgba(255, 180, 165, 0.24);
+  background: rgba(37, 27, 25, 0.72);
+}
+
+.access-badge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #04151f;
+  background: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.locked .access-badge {
+  background: var(--warning);
+}
+
+.unlock-panel {
+  border-color: rgba(129, 207, 255, 0.28);
+}
+
+.access-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(19, 19, 19, 0.82);
+  border: 1px solid var(--panel-border);
+  font-size: 12px;
+}
+
 .bottom-nav {
   position: sticky;
   bottom: 8px;
@@ -329,6 +383,13 @@ TACTICAL_CSS = """
   }
   .number-orb {
     font-size: 18px;
+  }
+  .access-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .access-badge {
+    align-self: flex-start;
   }
 }
 </style>

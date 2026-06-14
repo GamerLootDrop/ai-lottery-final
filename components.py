@@ -1,5 +1,6 @@
 import streamlit as st
 
+from auth import MY_WECHAT_ID, logout, unlock_with_code
 from lottery_rules import format_number
 
 
@@ -42,6 +43,102 @@ def render_prediction_card(title, desc, red_nums, blue_nums, choice, tone="prima
         unsafe_allow_html=True,
     )
     st.code(number_text, language="text")
+
+
+def render_access_banner():
+    if st.session_state.get("vip_unlocked"):
+        days_left = st.session_state.get("days_left", "未知")
+        col1, col2 = st.columns([2.4, 0.8])
+        with col1:
+            st.markdown(
+                f"""
+                <div class="access-strip">
+                  <div>
+                    <div class="result-title">当前权限：高阶版</div>
+                    <div class="result-desc">AC12、马尔科夫链、样本反向、组合压缩已开放；剩余 {days_left} 天。</div>
+                  </div>
+                  <div class="access-badge">已解锁</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col2:
+            if st.button("退出授权", use_container_width=True, key="top_logout_btn"):
+                logout()
+                st.rerun()
+        return
+
+    st.markdown(
+        """
+        <div class="access-strip locked">
+          <div>
+            <div class="result-title">当前权限：基础版</div>
+            <div class="result-desc">数据看板可直接使用；高阶公式、手动样本和组合压缩需授权。</div>
+          </div>
+          <div class="access-badge">待解锁</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("解锁高阶功能", use_container_width=True, key="top_unlock_go"):
+        st.session_state["page"] = "公式中心"
+        st.rerun()
+
+
+def render_unlock_panel(title="高阶权限未解锁", key_prefix="vip"):
+    if st.session_state.get("vip_unlocked"):
+        days_left = st.session_state.get("days_left", "未知")
+        st.markdown(
+            f"""
+            <div class="glass-card unlock-panel">
+              <div class="result-title">高阶权限已生效</div>
+              <div class="result-desc">当前剩余 {days_left} 天。需要续费、换设备或开通新授权，可添加微信处理。</div>
+              <div class="code-line">微信：{MY_WECHAT_ID}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.code(MY_WECHAT_ID, language="text")
+        return True
+
+    benefits = [
+        "AC12 高阶约束",
+        "马尔科夫链转移",
+        "手动样本反向分析",
+        "专家组合压缩",
+        "自建数据沙盘",
+    ]
+    benefit_html = "".join(f'<span class="access-chip">{item}</span>' for item in benefits)
+    st.markdown(
+        f"""
+        <div class="glass-card unlock-panel">
+          <div class="result-title">{title}</div>
+          <div class="result-desc">输入授权码后开放完整公式模块。没有授权码可以添加微信办理，备注“高阶公式”。</div>
+          <div class="access-chip-row">{benefit_html}</div>
+          <div class="code-line">微信：{MY_WECHAT_ID}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.code(MY_WECHAT_ID, language="text")
+
+    code = st.text_input("授权码", type="password", key=f"{key_prefix}_code", placeholder="输入后点击激活")
+    if st.button("激活高阶权限", use_container_width=True, key=f"{key_prefix}_unlock_btn"):
+        ok, message = unlock_with_code(code)
+        if ok:
+            st.session_state[f"{key_prefix}_auth_message"] = ("success", f"激活成功，剩余 {message} 天。")
+            st.rerun()
+        else:
+            st.session_state[f"{key_prefix}_auth_message"] = ("error", f"{message}。如需开通或续费，请添加微信 {MY_WECHAT_ID}。")
+
+    auth_message = st.session_state.get(f"{key_prefix}_auth_message")
+    if auth_message:
+        level, text = auth_message
+        if level == "success":
+            st.success(text)
+        else:
+            st.error(text)
+    return st.session_state.get("vip_unlocked", False)
 
 
 def render_bottom_nav(active_label):

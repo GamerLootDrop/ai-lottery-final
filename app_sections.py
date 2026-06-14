@@ -6,8 +6,7 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 
-from auth import MY_WECHAT_ID, logout, unlock_with_code
-from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card
+from components import render_bottom_nav, render_hero_card, render_metric_cards, render_prediction_card, render_unlock_panel
 from data_fetch import build_synced_dataframe, load_cloud_or_local_data, save_synced_dataframe
 from engagement import get_next_draw, get_usage_snapshot, load_comments, render_countdown_widget, submit_comment
 from formula_engine import (
@@ -236,14 +235,7 @@ def render_formula_section(df, choice, view_limit):
 
     st.markdown('<div class="section-title">高阶公式</div>', unsafe_allow_html=True)
     if not st.session_state.get("vip_unlocked"):
-        code = st.text_input("输入授权码解锁高阶公式", type="password", key="vip_code")
-        if st.button("激活高级权限", use_container_width=True, key="unlock_btn"):
-            ok, message = unlock_with_code(code)
-            if ok:
-                st.success(f"激活成功，剩余 {message} 天。")
-                st.rerun()
-            else:
-                st.error(message)
+        render_unlock_panel("解锁完整公式模块", key_prefix="formula")
     else:
         st.info(f"已激活，剩余 {st.session_state.get('days_left', '未知')} 天")
         if st.button("生成高阶推演", use_container_width=True, key=f"adv_{choice}"):
@@ -370,15 +362,12 @@ def render_formula_section(df, choice, view_limit):
                     blue_txt = " | " + " ".join(format_number(n, compress_choice) for n in item["blue"]) if item["blue"] else ""
                     st.code(f"精华 {idx:02d}: {red_txt}{blue_txt}", language="text")
 
-        if st.button("退出授权", use_container_width=True, key="logout_btn"):
-            logout()
-            st.rerun()
     render_bottom_nav("公式")
 
 
 def render_tactical_section(df_base, choice, view_limit):
     if not st.session_state.get("vip_unlocked"):
-        st.warning("该区域需先完成卡密授权。")
+        render_unlock_panel("解锁手动样本反向分析", key_prefix="tactical")
         render_bottom_nav("录入")
         return
 
@@ -587,16 +576,7 @@ def render_lobby(choice="双色球"):
                 st.error(message)
 
     st.markdown('<div class="section-title">联络与说明</div>', unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div class="glass-card">
-          <div class="result-title">授权与服务</div>
-          <div class="result-desc">高阶公式、样本录入、组合压缩均需授权后使用。</div>
-          <div class="code-line">微信：{MY_WECHAT_ID}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_unlock_panel("授权与服务", key_prefix="lobby")
     st.markdown(
         """
         <div class="glass-card">
