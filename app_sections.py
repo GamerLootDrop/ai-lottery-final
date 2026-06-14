@@ -135,6 +135,17 @@ def render_dashboard(df, choice, view_limit):
     for col in d_cols:
         show_df[col] = show_df[col].map(lambda x: format_number(x, choice))
     st.dataframe(show_df, use_container_width=True, hide_index=True)
+
+    st.markdown('<div class="section-title">模拟开奖</div>', unsafe_allow_html=True)
+    if st.button("生成模拟开奖", use_container_width=True, key=f"mock_draw_{choice}"):
+        pool_r, count_r, pool_b, count_b = get_lottery_rules(choice)
+        mock_red = sorted(random.sample(pool_r, count_r))
+        mock_blue = sorted(random.sample(pool_b, count_b)) if count_b > 0 else []
+        st.session_state[f"mock_draw_result_{choice}"] = (mock_red, mock_blue)
+    mock_result = st.session_state.get(f"mock_draw_result_{choice}")
+    if mock_result:
+        mock_red, mock_blue = mock_result
+        render_prediction_card("模拟开奖", "按当前彩种规则随机抽取，仅作沙盘演示。", mock_red, mock_blue, choice)
     render_bottom_nav("看板")
 
 

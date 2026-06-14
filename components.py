@@ -34,10 +34,14 @@ def render_prediction_card(title, desc, red_nums, blue_nums, choice, tone="prima
     balls = "".join([f'<span class="ball-mini {primary_class}">{format_number(n, choice)}</span>' for n in red_nums])
     if blue_nums:
         balls += "".join([f'<span class="ball-mini accent">{format_number(n, choice)}</span>' for n in blue_nums])
+    number_text = " ".join([format_number(n, choice) for n in red_nums])
+    if blue_nums:
+        number_text += " | " + " ".join([format_number(n, choice) for n in blue_nums])
     st.markdown(
-        f'<div class="glass-card result-card"><div class="result-title">{title}</div><div class="result-desc">{desc}</div><div class="ball-strip">{balls}</div><div class="code-line">{" ".join([format_number(n, choice) for n in red_nums])}{(" | " + " ".join([format_number(n, choice) for n in blue_nums])) if blue_nums else ""}</div></div>',
+        f'<div class="glass-card result-card"><div class="result-title">{title}</div><div class="result-desc">{desc}</div><div class="ball-strip">{balls}</div><div class="code-line">{number_text}</div></div>',
         unsafe_allow_html=True,
     )
+    st.code(number_text, language="text")
 
 
 def render_bottom_nav(active_label):
