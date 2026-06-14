@@ -298,6 +298,27 @@ TACTICAL_CSS = """
   margin: 16px 0;
 }
 
+.stButton > button {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(129, 207, 255, 0.35);
+  background: linear-gradient(180deg, #29b6f6 0%, #178fc5 100%);
+  color: #04151f;
+  font-weight: 800;
+}
+
+.stButton > button:hover {
+  border-color: rgba(129, 207, 255, 0.8);
+  color: #04151f;
+  filter: brightness(1.06);
+}
+
+.stButton > button:disabled {
+  background: rgba(229, 226, 225, 0.08);
+  color: rgba(229, 226, 225, 0.45);
+  border-color: rgba(135, 146, 155, 0.16);
+}
+
 @media (max-width: 640px) {
   .block-container {
     padding-left: 0.75rem !important;
@@ -316,4 +337,3 @@ TACTICAL_CSS = """
 
 def inject_styles():
     st.markdown(TACTICAL_CSS, unsafe_allow_html=True)
-

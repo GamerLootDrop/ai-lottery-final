@@ -15,6 +15,9 @@ restore_auth_from_query()
 
 render_topbar("高阶公式终端")
 
+if "page" not in st.session_state:
+    st.session_state["page"] = "数据看板"
+
 with st.container():
     col1, col2, col3 = st.columns([1.2, 1, 0.8])
     with col1:
@@ -22,7 +25,12 @@ with st.container():
     with col2:
         view_choice = st.selectbox("分析窗口", ["近30期", "近50期", "近100期"], index=0)
     with col3:
-        page = st.selectbox("页面", ["数据看板", "手动录入", "公式中心", "交流大厅"], index=0)
+        page_options = ["数据看板", "手动录入", "公式中心", "交流大厅"]
+        current_page = st.session_state.get("page", "数据看板")
+        if current_page not in page_options:
+            current_page = "数据看板"
+        page = st.selectbox("页面", page_options, index=page_options.index(current_page))
+        st.session_state["page"] = page
 
 view_limit = {"近30期": 30, "近50期": 50, "近100期": 100}[view_choice]
 
