@@ -23,12 +23,12 @@ def render_disclaimer():
     )
 
 
-st.set_page_config(page_title="高阶公式终端", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="量化星图", page_icon="🎯", layout="wide")
 inject_styles()
 init_auth_state()
 restore_auth_from_query()
 
-render_topbar("高阶公式终端")
+render_topbar("量化星图")
 render_access_banner()
 
 if "page" not in st.session_state:

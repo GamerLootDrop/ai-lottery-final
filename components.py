@@ -14,7 +14,7 @@ def render_topbar(title):
     st.markdown(
         f"""
         <div class="topbar">
-          <div class="muted">战术中控</div>
+          <div class="muted">数据中枢</div>
           <div class="topbar-title">{title}</div>
           <a class="topbar-link" href="{settings_href}" target="_self">设置</a>
         </div>
